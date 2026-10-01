@@ -312,6 +312,85 @@
     .tl-help { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
     .tl-help .error { font-size: 12px; }
 
+    /* ---------- Pads ---------- */
+    .top-right { display: flex; align-items: center; gap: 16px; }
+    .pads-wrap { max-width: 1400px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 56px) 24px; animation: rise .7s var(--ease) both; animation-delay: .35s; }
+    .pads-hint { font-size: 13px; color: var(--muted); padding: 0 6px; }
+    .pads-hint i { vertical-align: -2px; }
+    .pads { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; padding: 12px; background: var(--bg); }
+    .pad { position: relative; }
+    .pad-hit {
+      display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start;
+      width: 100%; height: 96px; padding: 12px;
+      border: 1px solid var(--line); border-radius: var(--r-surface);
+      background: var(--surface); text-align: left; cursor: pointer;
+      touch-action: manipulation;
+      transition: border-color .3s var(--ease), background .3s var(--ease), transform .15s var(--ease);
+    }
+    .pad-hit:hover { border-color: var(--line-strong); }
+    .pad-hit:active { transform: scale(.97); }
+    .pad-name { font-size: 14px; font-weight: 500; }
+    .pad.empty .pad-name { color: var(--faint); }
+    .pad.hit .pad-hit { animation: hit .35s var(--ease); }
+    @keyframes hit {
+      0% { background: rgb(var(--accent-rgb) / .28); border-color: var(--accent); transform: scale(.96); }
+      100% { background: var(--surface); }
+    }
+    .pad-fill {
+      position: absolute; top: 8px; right: 8px;
+      display: grid; place-items: center; width: 30px; height: 30px;
+      border: 1px solid var(--line); border-radius: 999px;
+      background: var(--bg); color: var(--muted); cursor: pointer;
+      opacity: 0; transition: opacity .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease);
+    }
+    .pad:hover .pad-fill, .pad-fill:focus-visible, .pad.empty .pad-fill { opacity: 1; }
+    .pad-fill:hover { color: var(--accent-text); border-color: var(--accent); }
+    .pad-fill:disabled { opacity: .5; cursor: progress; }
+    @media (hover: none) { .pad-fill { opacity: 1; } }
+
+    .btn.rec i { color: var(--accent); }
+    .btn.rec.on { border-color: var(--accent); color: var(--accent-text); background: var(--accent-dim); }
+    .btn.rec.on i { animation: blink 1s steps(2, start) infinite; }
+    @keyframes blink { to { visibility: hidden; } }
+
+    /* ---------- Modale des raccourcis ---------- */
+    .modal {
+      margin: auto; padding: 24px;
+      width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 48px);
+      border: 1px solid var(--line); border-radius: var(--r-surface);
+      background: var(--bg); color: var(--text);
+      box-shadow: 0 24px 64px -20px rgb(0 0 0 / .35);
+    }
+    .modal::backdrop { background: rgb(18 18 20 / .45); }
+    .modal[open] { animation: rise .35s var(--ease); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; }
+    .modal-head h2 { font-size: 20px; letter-spacing: -.02em; }
+    .modal-sub { margin-top: 6px; font-size: 14px; color: var(--muted); }
+    .icon-btn {
+      display: grid; place-items: center; width: 36px; height: 36px;
+      border: 1px solid var(--line); border-radius: 999px; background: var(--bg); cursor: pointer;
+    }
+    .icon-btn:hover { border-color: var(--line-strong); }
+    .keys-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; margin-top: 16px; }
+    .keys-list h3 { grid-column: 1 / -1; margin: 16px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .keys-list h3:first-child { margin-top: 0; }
+    .key-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .keycap {
+      min-width: 72px; height: 30px; padding: 0 10px;
+      border: 1px solid var(--line-strong); border-radius: 8px;
+      background: var(--surface); color: var(--text);
+      font: 500 12px "Geist Mono", monospace; cursor: pointer; white-space: nowrap;
+    }
+    .keycap:hover { border-color: var(--accent); }
+    .keycap.waiting { border-color: var(--accent); color: var(--accent-text); background: var(--accent-dim); }
+    .modal-foot { display: flex; justify-content: flex-end; margin-top: 20px; }
+
+    @media (max-width: 900px) {
+      .pads { grid-template-columns: repeat(4, 1fr); }
+      .keys-list { grid-template-columns: 1fr; }
+      .top-right .btn span, .crumb { display: none; }
+    }
+
     [hidden] { display: none !important; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
@@ -333,7 +412,10 @@
 <body>
   <header class="topbar mono">
     <a href="../"><i class="ph ph-arrow-left"></i>Devtober</a>
-    <span class="crumb">Jour 01 / <b>Pulse</b></span>
+    <div class="top-right">
+      <button class="btn" id="keys-open" type="button"><i class="ph ph-keyboard"></i>Raccourcis</button>
+      <span class="crumb">Jour 01 / <b>Pulse</b></span>
+    </div>
   </header>
 
   <div class="layout">
@@ -343,7 +425,7 @@
         <i class="ph-fill ph-play" id="play-icon"></i>
         <span id="play-label">Lancer</span>
       </button>
-      <p class="idle">Choisis un preset ou lance le son<span><kbd>Espace</kbd> pour lancer ou couper</span></p>
+      <p class="idle">Choisis un preset ou lance le son<span><kbd data-key="live">Espace</kbd> pour lancer ou couper</span></p>
       <div class="stage-info">
         <div>
           <p class="readout-label mono" id="readout-label">Fréquence</p>
@@ -452,9 +534,40 @@
           <div class="field-head"><label for="vol">Volume</label><output class="mono" id="vol-out">50 %</output></div>
           <input type="range" id="vol" min="0" max="100" value="50">
         </div>
+        <div class="field">
+          <div class="field-head"><label for="bass">Bass boost</label><output class="mono" id="bass-out">0 dB</output></div>
+          <input type="range" id="bass" min="0" max="24" value="0">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="bassf">Fréquence des basses</label><output class="mono" id="bassf-out">100 Hz</output></div>
+          <input type="range" id="bassf" min="40" max="250" value="100">
+        </div>
       </div>
     </aside>
   </div>
+
+  <section class="pads-wrap" aria-label="Pads">
+    <div class="tl-card">
+      <div class="tl-bar">
+        <h2>Pads</h2>
+        <button class="btn rec" id="rec" type="button" aria-pressed="false"><i class="ph-fill ph-record"></i><span id="rec-label">Enregistrer</span></button>
+        <span class="pads-hint">Joue avec les touches du clavier. <i class="ph ph-arrow-line-down"></i> range le son actuel sur un pad. Enregistrer place ce que tu joues dans la timeline.</span>
+      </div>
+      <div class="pads" id="pads"></div>
+    </div>
+  </section>
+
+  <dialog class="modal" id="keys-modal" aria-labelledby="keys-title">
+    <div class="modal-head">
+      <h2 id="keys-title">Raccourcis clavier</h2>
+      <button class="icon-btn" id="keys-close" type="button" aria-label="Fermer"><i class="ph ph-x"></i></button>
+    </div>
+    <p class="modal-sub">Clique sur une touche, puis appuie sur la nouvelle. <kbd>Échap</kbd> annule.</p>
+    <div class="keys-list" id="keys-list"></div>
+    <div class="modal-foot">
+      <button class="btn" id="keys-reset" type="button"><i class="ph ph-arrow-counter-clockwise"></i>Réinitialiser</button>
+    </div>
+  </dialog>
 
   <section class="timeline" aria-label="Timeline">
     <div class="tl-card">
@@ -486,8 +599,9 @@
       </div>
       <div class="tl-help">
         <span>Glisse un son pour le déplacer, tire ses bords pour le raccourcir, double-clic pour le couper.</span>
-        <span><kbd>C</kbd> coupe sous la tête de lecture</span>
-        <span><kbd>Suppr</kbd> efface le son sélectionné</span>
+        <span><kbd data-key="cut">C</kbd> coupe sous la tête de lecture</span>
+        <span><kbd data-key="del">Suppr</kbd> efface le son sélectionné</span>
+        <span><kbd data-key="tlplay">Entrée</kbd> écoute la timeline</span>
         <span><kbd>Alt</kbd> désactive le magnétisme</span>
         <p class="error" id="tl-error" role="alert" hidden></p>
       </div>
@@ -512,7 +626,9 @@
       rate: 1,
       dir: 1,
       buffer: null,
-      reversed: null
+      reversed: null,
+      bassGain: 0,
+      bassFreq: 100
     };
 
     // Échelle logarithmique pour les sliders de fréquence
@@ -520,7 +636,7 @@
     const invLog = (f, min, max) => Math.round(1000 * Math.log(f / min) / Math.log(max / min));
 
     // ---------- Audio ----------
-    let ctx, pulseGain, filter, master, analyser;
+    let ctx, pulseGain, filter, master, analyser, bass;
     let sources = [];
     let schedulerId = null, nextBeat = 0;
     const beatTimes = [];
@@ -534,13 +650,34 @@
       master = ctx.createGain();
       analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
-      pulseGain.connect(filter).connect(master).connect(analyser).connect(ctx.destination);
+      const out = outputChain(ctx, analyser);
+      bass = out.bass;
+      pulseGain.connect(filter).connect(master).connect(out.input);
+      analyser.connect(ctx.destination);
       applyParams();
+    }
+
+    // Bass boost (étagère grave) puis limiteur, partagés par le direct, la timeline, les pads et l'export
+    function outputChain(ac, dest) {
+      const b = ac.createBiquadFilter();
+      b.type = "lowshelf";
+      b.frequency.value = state.bassFreq;
+      b.gain.value = state.bassGain;
+      const lim = ac.createDynamicsCompressor();
+      lim.threshold.value = -3;
+      lim.knee.value = 0;
+      lim.ratio.value = 20;
+      lim.attack.value = 0.003;
+      lim.release.value = 0.15;
+      b.connect(lim).connect(dest);
+      return { input: b, bass: b };
     }
 
     function applyParams() {
       if (!ctx) return;
       const t = ctx.currentTime;
+      bass.frequency.setTargetAtTime(state.bassFreq, t, 0.02);
+      bass.gain.setTargetAtTime(state.bassGain, t, 0.02);
       filter.frequency.setTargetAtTime(state.cutoff, t, 0.02);
       master.gain.setTargetAtTime(state.vol * 0.6, t, 0.02);
       for (const s of sources) {
@@ -556,26 +693,26 @@
     }
 
     // Crée les sources du mode actuel, branchées sur dest, sans les démarrer
-    function createSources(ac, dest) {
+    function createSources(ac, dest, st = state) {
       const list = [];
-      if (state.mode === "synth") {
+      if (st.mode === "synth") {
         const voices = [[1, 1]];
-        if (state.ratio) voices.push([state.ratio, 0.5]);
+        if (st.ratio) voices.push([st.ratio, 0.5]);
         for (const [ratio, level] of voices) {
           const osc = ac.createOscillator();
           const g = ac.createGain();
-          osc.type = state.wave;
-          osc.frequency.value = state.freq * ratio;
+          osc.type = st.wave;
+          osc.frequency.value = st.freq * ratio;
           // Les ondes carrées et en dent de scie sont plus fortes : on compense
-          g.gain.value = level * (state.wave === "square" || state.wave === "sawtooth" ? 0.35 : 0.8);
+          g.gain.value = level * (st.wave === "square" || st.wave === "sawtooth" ? 0.35 : 0.8);
           osc.connect(g).connect(dest);
           list.push({ kind: "osc", node: osc, ratio });
         }
-      } else if (state.buffer) {
+      } else if (st.buffer) {
         const src = ac.createBufferSource();
-        src.buffer = state.dir === 1 ? state.buffer : state.reversed;
+        src.buffer = st.dir === 1 ? st.buffer : st.reversed;
         src.loop = true;
-        src.playbackRate.value = state.rate;
+        src.playbackRate.value = st.rate;
         src.connect(dest);
         list.push({ kind: "file", node: src });
       }
@@ -699,6 +836,8 @@
     bindRange("bpm", v => { state.bpm = v; $("bpm-out").textContent = v + " BPM"; $("bpm-readout").textContent = v; });
     bindRange("depth", v => { state.depth = v / 100; $("depth-out").textContent = v + " %"; });
     bindRange("vol", v => { state.vol = v / 100; $("vol-out").textContent = v + " %"; });
+    bindRange("bass", v => { state.bassGain = v; $("bass-out").textContent = (v ? "+" : "") + v + " dB"; });
+    bindRange("bassf", v => { state.bassFreq = v; $("bassf-out").textContent = v + " Hz"; });
     bindRange("rate", v => { state.rate = v / 100; $("rate-out").textContent = state.rate.toFixed(2) + "×"; });
     ["freq", "bpm", "depth", "cutoff"].forEach(id => $(id).addEventListener("input", e => { if (e.isTrusted) clearPreset(); }));
 
@@ -820,9 +959,6 @@
     });
 
     $("play").addEventListener("click", toggle);
-    window.addEventListener("keydown", e => {
-      if (e.code === "Space" && !e.target.closest("input, button")) { e.preventDefault(); toggle(); }
-    });
 
     // ---------- Visualisation ----------
     const canvas = $("viz");
@@ -854,7 +990,7 @@
       g2d.clearRect(0, 0, W, H);
       const cx = W / 2, cy = H / 2 - 20;
       const base = Math.min(W, H) * 0.2;
-      const live = (state.playing || tl.playing) && analyser;
+      const live = (state.playing || tl.playing || (ctx && ctx.currentTime < padUntil)) && analyser;
 
       // Niveau sonore actuel (RMS)
       let level = 0;
@@ -940,18 +1076,23 @@
         if (!state.buffer) { showError("Dépose d'abord un fichier audio."); tlError("Dépose d'abord un fichier audio dans « Ton son »."); return null; }
         dur = Math.min(60, state.buffer.duration / state.rate);
       }
-      const sr = ctx.sampleRate;
+      return renderSound(state, dur);
+    }
+
+    // Rend un réglage (st) pendant dur secondes : sources, battement et filtre
+    function renderSound(st, dur) {
+      const sr = ctx ? ctx.sampleRate : 44100;
       const off = new OfflineAudioContext(2, Math.ceil(sr * dur), sr);
       const pg = off.createGain();
       const f = off.createBiquadFilter();
       f.type = "lowpass";
-      f.frequency.value = state.cutoff;
+      f.frequency.value = st.cutoff;
       pg.connect(f).connect(off.destination);
-      createSources(off, pg).forEach(s => s.node.start(0));
-      const period = 60 / state.bpm, floor = 1 - state.depth;
+      createSources(off, pg, st).forEach(s => s.node.start(0));
+      const period = 60 / st.bpm, floor = 1 - st.depth;
       pg.gain.setValueAtTime(0, 0);
       for (let t0 = 0; t0 < dur; t0 += period) {
-        for (const [x, y] of SHAPES[state.shape]) pg.gain.linearRampToValueAtTime(floor + state.depth * y, t0 + x * period);
+        for (const [x, y] of SHAPES[st.shape]) pg.gain.linearRampToValueAtTime(floor + st.depth * y, t0 + x * period);
       }
       return off.startRendering();
     }
@@ -976,7 +1117,8 @@
       tl.sel = c;
       tlError("");
       renderTimeline();
-      restartIfPlaying();
+      // Pendant l'enregistrement, le son vient d'être joué en direct : pas de relance
+      if (!tl.rec) restartIfPlaying();
     }
 
     function splitClip(c, t) {
@@ -1087,7 +1229,7 @@
 
     function updateTlButtons() {
       const empty = !tl.clips.length;
-      $("tl-play").disabled = empty;
+      $("tl-play").disabled = empty && !tl.playing;
       $("tl-export").disabled = empty;
       $("tl-del").disabled = !tl.sel;
       $("tl-cut").disabled = !cutTargets().length;
@@ -1128,7 +1270,7 @@
     const tlPos = () => tl.playing ? tl.from + Math.max(0, ctx.currentTime - tl.t0) : tl.head;
 
     async function playTl() {
-      if (!tl.clips.length) return;
+      if (!tl.clips.length && !tl.rec) return;
       initAudio();
       if (ctx.state === "suspended") await ctx.resume();
       if (state.playing) stop();
@@ -1146,6 +1288,7 @@
       tl.nodes.forEach(n => { try { n.stop(); } catch (e) {} n.disconnect(); });
       tl.nodes = [];
       tl.playing = false;
+      if (tl.rec) { tl.rec = false; updateRecButton(); }
       updateHead();
       updateTlButtons();
     }
@@ -1166,13 +1309,14 @@
     function tlTick() {
       if (tl.playing) {
         const end = tlLength();
-        if (tlPos() >= end) {
+        if (!tl.rec && tlPos() >= end) {
           stopTl();
           tl.head = end;
         } else {
           tl.head = tlPos();
         }
         updateHead();
+        if (tl.rec && tl.head * tl.pps > tlEl.inner.offsetWidth - 120) renderTimeline();
         // Garde la tête de lecture visible
         const x = tl.head * tl.pps, s = tlEl.scroll;
         if (x > s.scrollLeft + s.clientWidth - 40 || x < s.scrollLeft) s.scrollLeft = x - 40;
@@ -1211,7 +1355,7 @@
         const off = new OfflineAudioContext(2, Math.ceil(sr * len), sr);
         const out = off.createGain();
         out.gain.value = 0.8;
-        out.connect(off.destination);
+        out.connect(outputChain(off, off.destination).input);
         scheduleClips(off, out, 0, 0);
         const a = document.createElement("a");
         a.href = URL.createObjectURL(encodeWav(await off.startRendering()));
@@ -1352,17 +1496,219 @@
     });
     setRangeFill($("tl-zoom"));
 
-    window.addEventListener("keydown", e => {
-      if (e.target.closest("input, select, textarea") || e.metaKey || e.ctrlKey) return;
-      if (e.key === "c" || e.key === "C") cutAtHead();
-      if ((e.key === "Delete" || e.key === "Backspace") && tl.sel) { e.preventDefault(); deleteSel(); }
-    });
 
     // Les formes d'onde des clips suivent le thème
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => renderTimeline());
 
     renderTimeline();
     tlTick();
+
+
+    // ---------- Pads ----------
+    // Des sons courts rendus une fois, joués au clavier comme une boîte à rythmes
+    const PAD_KEYS = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyA", "KeyS", "KeyD", "KeyF"];
+    const PAD_DEFAULTS = [
+      { name: "Kick",   freq: 50,   wave: "sine",     ratio: 0,   shape: "tick",  depth: 1,   cutoff: 400,   bpm: 60,  dur: 0.6 },
+      { name: "Tom",    freq: 110,  wave: "triangle", ratio: 0,   shape: "tick",  depth: 1,   cutoff: 1200,  bpm: 120, dur: 0.4 },
+      { name: "Bip",    freq: 880,  wave: "sine",     ratio: 0,   shape: "tick",  depth: 1,   cutoff: 20000, bpm: 60,  dur: 0.3 },
+      { name: "Zap",    freq: 1400, wave: "square",   ratio: 1.5, shape: "tick",  depth: 1,   cutoff: 5000,  bpm: 200, dur: 0.3 },
+      { name: "Basse",  freq: 45,   wave: "sawtooth", ratio: 2,   shape: "tick",  depth: 1,   cutoff: 400,   bpm: 120, dur: 0.5 },
+      { name: "Cœur",   freq: 55,   wave: "sine",     ratio: 0.5, shape: "heart", depth: 1,   cutoff: 900,   bpm: 62,  dur: 1 },
+      { name: "Sonar",  freq: 880,  wave: "sine",     ratio: 0,   shape: "tick",  depth: 1,   cutoff: 20000, bpm: 30,  dur: 1.5 },
+      { name: "Alarme", freq: 660,  wave: "square",   ratio: 1.5, shape: "gate",  depth: 1,   cutoff: 6000,  bpm: 220, dur: 1 }
+    ];
+    const pads = PAD_DEFAULTS.map(p => ({ name: p.name, buffer: null }));
+    let padUntil = 0;
+
+    $("pads").innerHTML = pads.map((p, i) => `
+      <div class="pad" data-i="${i}">
+        <button class="pad-hit" type="button" data-i="${i}">
+          <kbd class="pad-key" data-key="pad${i}"></kbd>
+          <span class="pad-name"></span>
+        </button>
+        <button class="pad-fill" type="button" data-i="${i}" title="Mettre le son actuel sur ce pad" aria-label="Mettre le son actuel sur le pad ${i + 1}"><i class="ph ph-arrow-line-down"></i></button>
+      </div>`).join("");
+    const padEls = [...document.querySelectorAll(".pad")];
+
+    function renderPad(i) {
+      padEls[i].querySelector(".pad-name").textContent = pads[i].buffer ? pads[i].name : "Vide";
+      padEls[i].classList.toggle("empty", !pads[i].buffer);
+      padEls[i].querySelector(".pad-hit").setAttribute("aria-label", `Jouer ${pads[i].name}`);
+    }
+
+    // Sons par défaut, rendus au chargement (pas besoin d'interaction pour un OfflineAudioContext)
+    PAD_DEFAULTS.forEach((p, i) => {
+      renderPad(i);
+      renderSound({ ...state, mode: "synth", ...p }, p.dur).then(buf => { pads[i].buffer = buf; renderPad(i); });
+    });
+
+    async function triggerPad(i) {
+      const p = pads[i];
+      if (!p.buffer) return;
+      initAudio();
+      if (ctx.state === "suspended") await ctx.resume();
+      const src = ctx.createBufferSource();
+      src.buffer = p.buffer;
+      src.connect(master);
+      src.start();
+      padUntil = Math.max(padUntil, ctx.currentTime + p.buffer.duration);
+      beatTimes.push(ctx.currentTime);
+      if (beatTimes.length > 8) beatTimes.shift();
+      const el = padEls[i];
+      el.classList.remove("hit");
+      void el.offsetWidth;
+      el.classList.add("hit");
+      if (tl.rec) addClip(p.buffer, p.name, tlPos());
+    }
+
+    async function fillPad(i) {
+      const btn = padEls[i].querySelector(".pad-fill");
+      btn.disabled = true;
+      try {
+        const buffer = await renderCurrent();
+        if (buffer) { pads[i] = { name: currentName(), buffer }; renderPad(i); }
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    $("pads").addEventListener("pointerdown", e => {
+      const hit = e.target.closest(".pad-hit");
+      if (!hit) return;
+      e.preventDefault(); // pas de focus : Espace reste libre pour le son en direct
+      triggerPad(+hit.dataset.i);
+    });
+    $("pads").addEventListener("click", e => {
+      const fill = e.target.closest(".pad-fill");
+      if (fill) fillPad(+fill.dataset.i);
+      // Activation au clavier (Tab puis Entrée) sur un pad
+      const hit = e.target.closest(".pad-hit");
+      if (hit && e.detail === 0) triggerPad(+hit.dataset.i);
+    });
+
+    // Enregistrement : les pads joués pendant que la timeline tourne y deviennent des sons
+    function updateRecButton() {
+      $("rec").classList.toggle("on", !!tl.rec);
+      $("rec").setAttribute("aria-pressed", !!tl.rec);
+      $("rec-label").textContent = tl.rec ? "Arrêter l'enregistrement" : "Enregistrer";
+    }
+
+    async function toggleRec() {
+      if (tl.rec) { stopTl(); return; }
+      tl.rec = true;
+      updateRecButton();
+      if (!tl.playing) await playTl();
+    }
+    $("rec").addEventListener("click", toggleRec);
+
+    // ---------- Raccourcis clavier ----------
+    const ACTIONS = [
+      { id: "live",   label: "Lancer ou couper le son", def: "Space" },
+      { id: "tlplay", label: "Écouter la timeline",     def: "Enter" },
+      { id: "add",    label: "Ajouter le son actuel",   def: "KeyN" },
+      { id: "cut",    label: "Couper",                  def: "KeyC" },
+      { id: "del",    label: "Supprimer le son",        def: "Backspace" },
+      { id: "rec",    label: "Enregistrer les pads",    def: "KeyX" },
+      ...PAD_KEYS.map((k, i) => ({ id: "pad" + i, label: `Pad ${i + 1}`, def: k, pad: true }))
+    ];
+    const SPECIAL = { Space: "Espace", Enter: "Entrée", Backspace: "Retour", Delete: "Suppr", Escape: "Échap", Tab: "Tab",
+      ArrowLeft: "Gauche", ArrowRight: "Droite", ArrowUp: "Haut", ArrowDown: "Bas", ShiftLeft: "Maj", ShiftRight: "Maj" };
+    const defaultLabel = code => SPECIAL[code] || code.replace(/^Key|^Digit|^Numpad/, "");
+
+    const store = {
+      get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+      set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+    };
+    let binds = Object.assign({}, store.get("pulse-binds"));
+    const keyLabels = Object.assign({}, store.get("pulse-key-labels"));
+    ACTIONS.forEach(a => { if (!binds[a.id]) binds[a.id] = a.def; });
+
+    const keyLabel = code => keyLabels[code] || defaultLabel(code);
+
+    function refreshKeyLabels() {
+      document.querySelectorAll("[data-key]").forEach(el => { el.textContent = keyLabel(binds[el.dataset.key]); });
+    }
+
+    // Sur Chrome, on affiche les vraies lettres du clavier (AZERTY, QWERTZ…)
+    if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+      navigator.keyboard.getLayoutMap().then(map => {
+        map.forEach((v, code) => { if (!keyLabels[code]) keyLabels[code] = v.toUpperCase(); });
+        refreshKeyLabels();
+      }).catch(() => {});
+    }
+
+    const RUN = {
+      live: () => toggle(),
+      tlplay: () => tl.playing ? stopTl() : playTl(),
+      add: () => $("tl-add").click(),
+      cut: () => cutAtHead(),
+      del: () => deleteSel(),
+      rec: () => toggleRec()
+    };
+
+    let capturing = null;
+
+    window.addEventListener("keydown", e => {
+      if (capturing || $("keys-modal").open) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target.closest("input, select, textarea")) return;
+      let id = Object.keys(binds).find(k => binds[k] === e.code);
+      if (!id && e.code === "Delete") id = "del";
+      if (!id) return;
+      // Espace et Entrée gardent leur rôle sur un bouton qui a le focus
+      if ((e.code === "Space" || e.code === "Enter") && e.target.closest("button, a, summary")) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (id.startsWith("pad")) triggerPad(+id.slice(3));
+      else RUN[id]();
+    });
+
+    // Menu des raccourcis
+    function renderKeysList() {
+      const row = a => `<div class="key-row"><span>${a.label}</span><button class="keycap${capturing === a.id ? " waiting" : ""}" type="button" data-action="${a.id}">${capturing === a.id ? "Appuie sur une touche" : keyLabel(binds[a.id])}</button></div>`;
+      $("keys-list").innerHTML =
+        `<h3>Actions</h3>${ACTIONS.filter(a => !a.pad).map(row).join("")}` +
+        `<h3>Pads</h3>${ACTIONS.filter(a => a.pad).map(a => row({ ...a, label: `${a.label}, ${pads[+a.id.slice(3)].name}` })).join("")}`;
+    }
+
+    $("keys-open").addEventListener("click", () => { capturing = null; renderKeysList(); $("keys-modal").showModal(); });
+    $("keys-close").addEventListener("click", () => $("keys-modal").close());
+    $("keys-modal").addEventListener("close", () => { capturing = null; });
+    $("keys-modal").addEventListener("click", e => { if (e.target === $("keys-modal")) $("keys-modal").close(); });
+    $("keys-list").addEventListener("click", e => {
+      const cap = e.target.closest(".keycap");
+      if (!cap) return;
+      capturing = cap.dataset.action;
+      renderKeysList();
+    });
+    $("keys-reset").addEventListener("click", () => {
+      ACTIONS.forEach(a => { binds[a.id] = a.def; });
+      store.set("pulse-binds", binds);
+      capturing = null;
+      renderKeysList();
+      refreshKeyLabels();
+    });
+
+    // Capture de la nouvelle touche (avant tout le reste)
+    window.addEventListener("keydown", e => {
+      if (!capturing) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.code === "Escape") { capturing = null; renderKeysList(); return; }
+      if (["Tab", "MetaLeft", "MetaRight", "ControlLeft", "ControlRight", "AltLeft", "AltRight"].includes(e.code)) return;
+      // Si la touche servait déjà, les deux actions échangent leurs touches
+      const other = Object.keys(binds).find(k => binds[k] === e.code);
+      if (other && other !== capturing) binds[other] = binds[capturing];
+      binds[capturing] = e.code;
+      if (e.key && e.key.length === 1 && e.key !== " ") keyLabels[e.code] = e.key.toUpperCase();
+      store.set("pulse-binds", binds);
+      store.set("pulse-key-labels", keyLabels);
+      capturing = null;
+      renderKeysList();
+      refreshKeyLabels();
+    }, true);
+
+    refreshKeyLabels();
 
     draw();
   </script>
