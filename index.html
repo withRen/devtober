@@ -4,270 +4,447 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Devtober 2026</title>
-  <meta name="description" content="1 mot par jour pendant tout octobre, 1 création en code.">
+  <meta name="description" content="Un mot par jour pendant tout octobre, une création en code.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
   <style>
+    /* Palette Toyota : rouge, anthracite, quasi-blanc */
     :root {
-      --bg: #ffffff;
-      --surface: #f4f4f4;
-      --surface-hover: #ececec;
-      --line: #e1e1e1;
-      --line-strong: #c8c8c8;
+      color-scheme: light;
+      --bg: #fafafa;
+      --surface: #f0f0f1;
+      --surface-2: #e7e7e9;
+      --line: #e0e0e2;
+      --line-strong: #c4c4c8;
       --text: #1a1a1a;
-      --muted: #58595b;
-      --faint: #9a9a9a;
+      --muted: #4f5053;
+      --faint: #6e6e73;
       --accent: #eb0a1e;
-      --accent-dim: rgba(235, 10, 30, .10);
+      --accent-rgb: 235 10 30;
+      --accent-text: #d20a1b;
+      --on-accent: #ffffff;
+      --glass: rgb(250 250 250 / .72);
       --ease: cubic-bezier(.16, 1, .3, 1);
+      --r: 20px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #121214;
+        --surface: #1b1b1e;
+        --surface-2: #242428;
+        --line: #2a2a2e;
+        --line-strong: #3d3d43;
+        --text: #f1f1f2;
+        --muted: #b0b0b6;
+        --faint: #8b8b92;
+        --accent-text: #ff5a66;
+        --glass: rgb(27 27 30 / .7);
+      }
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
+    html { scroll-behavior: smooth; }
     body {
-      min-height: 100dvh;
       background: var(--bg);
       color: var(--text);
-      font-family: "Geist", system-ui, sans-serif;
+      font-family: "Outfit", system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
+    main { overflow-x: hidden; width: 100%; max-width: 100%; }
+    a { color: inherit; }
+    .mono { font-family: "Geist Mono", ui-monospace, monospace; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 56px); }
+    section { position: relative; }
+    .chapter { padding: clamp(96px, 14vw, 192px) 0; }
 
-    /* Grain discret, fixe, sans repaint au scroll */
+    /* Grain fixe, sans repaint au scroll */
     body::after {
-      content: "";
-      position: fixed; inset: 0;
-      pointer-events: none;
-      opacity: .025;
+      content: ""; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .04;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
-    .mono { font-family: "Geist Mono", ui-monospace, monospace; }
-
-    .layout {
-      max-width: 1400px;
-      margin: 0 auto;
-      min-height: 100dvh;
-      display: grid;
-      grid-template-columns: minmax(300px, 5fr) 8fr;
-      gap: clamp(40px, 6vw, 96px);
-      padding: clamp(32px, 6vw, 80px) clamp(16px, 4vw, 56px);
+    /* Photos : noir et blanc contrasté, teinte rouge en surimpression */
+    .photo { position: relative; overflow: hidden; background: var(--surface-2); }
+    .photo img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      filter: grayscale(1) contrast(1.2) brightness(.95);
+      transition: transform .9s var(--ease);
     }
+    .photo::after { content: ""; position: absolute; inset: 0; background: rgb(var(--accent-rgb) / .18); mix-blend-mode: multiply; pointer-events: none; }
+    .hover-zoom:hover .photo img, .photo.hover-zoom:hover img { transform: scale(1.05); }
 
-    /* ---------- Colonne gauche ---------- */
-    .intro {
-      position: sticky;
-      top: clamp(32px, 6vw, 80px);
-      align-self: start;
-      display: grid;
-      gap: 40px;
-    }
-
-    .eyebrow {
+    /* ---------- Boutons ---------- */
+    .btn {
       display: inline-flex; align-items: center; gap: 10px;
-      font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
-      color: var(--muted);
+      height: 52px; padding: 0 26px;
+      border-radius: 999px; border: 1px solid transparent;
+      font: 500 16px "Outfit", sans-serif; text-decoration: none; white-space: nowrap; cursor: pointer;
+      transition: transform .3s var(--ease), background .3s var(--ease), border-color .3s var(--ease);
     }
-    .beat {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--accent);
-      animation: beat 1.6s var(--ease) infinite;
-    }
-    @keyframes beat {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      15% { transform: scale(1.6); opacity: .7; }
-      30% { transform: scale(1); opacity: 1; }
-    }
+    .btn:active { transform: scale(.97); }
+    .btn i { font-size: 18px; transition: transform .4s var(--ease); }
+    .btn:hover i.ph-arrow-right, .btn:hover i.ph-arrow-up-right { transform: translateX(3px); }
+    .btn-primary { background: var(--accent); color: var(--on-accent); }
+    .btn-primary:hover { background: #c80818; }
+    .btn-ghost { background: var(--bg); color: var(--text); border-color: var(--line-strong); }
+    .btn-ghost:hover { border-color: var(--text); }
 
-    h1 {
-      font-size: clamp(40px, 5vw, 60px);
-      font-weight: 600;
-      letter-spacing: -.045em;
-      line-height: 1;
-      margin-top: 18px;
-    }
-    h1 span { color: var(--faint); }
-
-    .lead {
-      margin-top: 18px;
-      max-width: 38ch;
-      font-size: 16px;
-      line-height: 1.6;
-      color: var(--muted);
-    }
-    .lead strong { color: var(--text); font-weight: 500; }
-
-    /* Mot du jour */
-    .today-card {
-      border-top: 1px solid var(--line);
-      padding-top: 24px;
-    }
-    .label { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
-    .today-word {
-      display: block;
-      font-size: clamp(32px, 3.4vw, 44px);
-      font-weight: 500;
-      letter-spacing: -.035em;
-      margin-top: 8px;
-    }
-    .today-meta { margin-top: 6px; font-size: 13px; color: var(--faint); }
-
-    /* Progression : 31 segments */
-    .progress-head {
-      display: flex; justify-content: space-between; align-items: baseline;
-      font-size: 12px; color: var(--muted);
-    }
-    .progress-head b { color: var(--text); font-weight: 500; }
-    .bar {
-      margin-top: 12px;
-      display: grid;
-      grid-template-columns: repeat(31, 1fr);
-      gap: 3px;
-    }
-    .bar i {
-      height: 18px; border-radius: 2px;
-      background: var(--line);
-      transform-origin: bottom;
-      animation: rise .8s var(--ease) both;
-      animation-delay: calc(var(--i) * 18ms + 200ms);
-    }
-    .bar i.done { background: var(--accent); }
-    .day.today { background: var(--bg); }
-    .bar i.now { background: var(--line-strong); box-shadow: inset 0 0 0 1px var(--accent); }
-    @keyframes rise { from { transform: scaleY(0); } }
-
-    .links {
-      display: flex; flex-wrap: wrap; gap: 8px 20px;
-      font-size: 14px;
-    }
-    .links a {
-      color: var(--muted);
-      text-decoration: none;
-      border-bottom: 1px solid var(--line-strong);
-      padding-bottom: 2px;
-      transition: color .3s var(--ease), border-color .3s var(--ease);
-    }
-    .links a:hover { color: var(--text); border-color: var(--accent); }
-
-    /* ---------- Grille des jours ---------- */
-    .days {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-      gap: 8px;
-      align-content: start;
-    }
-
-    .week-label {
-      grid-column: 1 / -1;
-      display: flex; align-items: center; gap: 12px;
-      font-size: 11px; color: var(--faint);
-      letter-spacing: .08em; text-transform: uppercase;
-      margin: 28px 0 4px;
-    }
-    .week-label:first-child { margin-top: 0; }
-    .week-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-
-    .day {
-      --x: 50%; --y: 50%;
-      position: relative;
-      display: flex; flex-direction: column; justify-content: space-between;
-      min-height: 124px;
-      padding: 14px 16px 16px;
-      border-radius: 14px;
-      background: var(--surface);
+    /* ---------- Navigation ---------- */
+    .nav {
+      position: fixed; top: 16px; left: 50%; z-index: 50;
+      transform: translateX(-50%);
+      display: flex; align-items: center; gap: 4px;
+      height: 56px; padding: 0 6px 0 20px;
+      width: max-content; max-width: calc(100vw - 32px);
+      border-radius: 999px;
+      background: var(--glass);
       border: 1px solid var(--line);
-      color: var(--faint);
-      text-decoration: none;
-      overflow: hidden;
-      opacity: 0;
-      animation: reveal .7s var(--ease) both;
-      animation-delay: calc(var(--i) * 22ms + 120ms);
-      transition: transform .35s var(--ease), border-color .35s var(--ease), background .35s var(--ease);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / .08), 0 12px 32px -16px rgb(0 0 0 / .25);
+      backdrop-filter: blur(16px) saturate(160%);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
     }
-    @keyframes reveal {
-      from { opacity: 0; transform: translateY(10px); }
-      to   { opacity: 1; transform: none; }
+    .brand { font-weight: 600; font-size: 17px; letter-spacing: -.02em; text-decoration: none; margin-right: 16px; }
+    .brand span { color: var(--accent-text); }
+    .nav-link { padding: 8px 14px; border-radius: 999px; font-size: 15px; color: var(--muted); text-decoration: none; transition: color .3s var(--ease), background .3s var(--ease); }
+    .nav-link:hover { color: var(--text); background: var(--surface); }
+    .nav .btn { height: 44px; padding: 0 18px; font-size: 15px; margin-left: 8px; }
+
+    /* ---------- Héro ---------- */
+    .hero { min-height: 100dvh; display: flex; align-items: center; padding: 140px 0 96px; overflow: hidden; }
+    .hero::before {
+      content: ""; position: absolute; right: -20vw; top: -10vw; width: 70vw; height: 70vw; pointer-events: none;
+      background: radial-gradient(circle, rgb(var(--accent-rgb) / .16), transparent 62%);
+      filter: blur(40px);
+    }
+    .hero-inner { position: relative; width: 100%; }
+    .hero h1 {
+      max-width: 72rem;
+      font-size: clamp(2.6rem, 5.4vw, 5.6rem);
+      font-weight: 600; letter-spacing: -.045em; line-height: 1.02;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent-text); }
+    .inline-pic {
+      display: inline-block; vertical-align: middle;
+      width: clamp(88px, 9vw, 150px); height: clamp(42px, 4.4vw, 74px);
+      margin: 0 .12em; border-radius: 999px; transform: translateY(-.06em);
+    }
+    .hero p { margin-top: 32px; max-width: 46ch; font-size: clamp(17px, 1.4vw, 20px); line-height: 1.55; color: var(--muted); }
+    .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 40px; }
+    .hero-float {
+      position: absolute; right: clamp(16px, 4vw, 56px); bottom: -40px;
+      width: clamp(220px, 26vw, 400px); aspect-ratio: 4 / 5;
+      border-radius: var(--r); z-index: -1;
+      box-shadow: 0 40px 80px -40px rgb(var(--accent-rgb) / .45);
     }
 
+    /* ---------- Mosaïque ---------- */
+    .bento { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(220px, auto); grid-auto-flow: dense; gap: 12px; }
+    .cell { position: relative; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); overflow: hidden; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; transition: border-color .4s var(--ease); }
+    .cell:hover { border-color: var(--line-strong); }
+    .cell-a { grid-column: span 2; grid-row: span 2; text-decoration: none; background: var(--text); color: var(--bg); border-color: var(--text); }
+    .cell-b, .cell-c { grid-column: span 1; }
+    .cell-d { grid-column: span 2; }
+    .cell-c { padding: 0; }
+    .cell-c .photo { position: absolute; inset: 0; }
+    .label { font-size: 13px; color: var(--faint); }
+    .cell-a .label { color: rgb(255 255 255 / .6); }
+    @media (prefers-color-scheme: dark) { .cell-a .label { color: rgb(18 18 20 / .6); } }
+    .today-word { font-size: clamp(64px, 9vw, 140px); font-weight: 600; letter-spacing: -.06em; line-height: .9; }
+    .cell-a .row { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+    .cell-a .go { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 22px; transition: transform .6s var(--ease); flex-shrink: 0; }
+    .cell-a:hover .go { transform: rotate(-45deg) scale(1.06); }
+    .cell-a canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .9; }
+    .cell-a > *:not(canvas) { position: relative; }
+    .big-num { font-size: clamp(56px, 6vw, 88px); font-weight: 600; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+    .big-num small { font-size: .38em; color: var(--faint); letter-spacing: 0; }
+    .bar { display: grid; grid-template-columns: repeat(31, 1fr); gap: 2px; margin-top: 16px; }
+    .bar i { height: 14px; border-radius: 2px; background: var(--line); }
+    .bar i.done { background: var(--accent); }
+    .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 16px; }
+    .rules b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -.03em; }
+    .rules span { font-size: 14px; color: var(--muted); }
+
+    /* ---------- Texte révélé ---------- */
+    .manifesto { font-size: clamp(28px, 3.6vw, 52px); font-weight: 500; letter-spacing: -.035em; line-height: 1.15; max-width: 60rem; }
+    .manifesto .w { opacity: .12; }
+    .manifesto .accent { color: var(--accent-text); }
+
+    /* ---------- 31 mots (section épinglée) ---------- */
+    .split { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(32px, 6vw, 96px); align-items: start; }
+    .split-title h2 { font-size: clamp(44px, 5.4vw, 80px); font-weight: 600; letter-spacing: -.05em; line-height: .95; }
+    .split-title p { margin-top: 20px; max-width: 34ch; font-size: 18px; line-height: 1.55; color: var(--muted); }
+    .split-title .btn { margin-top: 32px; }
+    .weeks { display: grid; gap: 48px; }
+    .week h3 { font-size: 15px; font-weight: 500; color: var(--faint); margin-bottom: 12px; }
+    .days { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .day {
+      position: relative; display: flex; flex-direction: column; justify-content: space-between;
+      min-height: 112px; padding: 14px 16px 16px;
+      border-radius: 16px; border: 1px solid var(--line); background: var(--surface);
+      color: var(--faint); text-decoration: none; overflow: hidden;
+      transition: transform .5s var(--ease), border-color .4s var(--ease), background .4s var(--ease);
+    }
     .day-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-    .word { font-size: 21px; font-weight: 500; letter-spacing: -.025em; }
-    .status { font-size: 11px; }
-
-    /* Publié */
-    .day.done { color: var(--text); background: var(--surface); }
-    .day.done .status { color: var(--accent); }
-    .day.done::before {
-      content: "";
-      position: absolute; inset: 0;
-      border-radius: inherit;
-      background: radial-gradient(220px circle at var(--x) var(--y), var(--accent-dim), transparent 60%);
-      opacity: 0;
-      transition: opacity .35s var(--ease);
-      pointer-events: none;
-    }
-    .day.done:hover { border-color: var(--line-strong); background: var(--surface-hover); transform: translateY(-2px); }
-    .day.done:hover::before { opacity: 1; }
+    .day .word { font-size: 22px; font-weight: 500; letter-spacing: -.025em; }
+    .day.done { color: var(--text); border-color: var(--line-strong); }
+    .day.done .status { color: var(--accent-text); }
+    .day.done:hover { transform: translateY(-4px); border-color: var(--accent); }
     .day.done:active { transform: scale(.98); }
-    .day.done .arrow { display: inline-block; transition: transform .35s var(--ease); }
-    .day.done:hover .arrow { transform: translateX(3px); }
-
-    /* Aujourd'hui (pas encore publié) */
     .day.today { color: var(--text); border-color: var(--accent); }
-    .day.today .status { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
-    .day.today .status::before {
-      content: ""; width: 6px; height: 6px; border-radius: 50%;
-      background: var(--accent);
-      animation: beat 1.6s var(--ease) infinite;
-    }
-
-    /* Passé, non publié */
+    .day.today .status { color: var(--accent-text); }
     .day.missed { color: var(--muted); }
-
-    /* À venir */
     .day.future { background: transparent; border-style: dashed; }
+
+    /* ---------- Accordéon horizontal ---------- */
+    .acc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 40px; }
+    .acc-head h2 { font-size: clamp(36px, 4.4vw, 64px); font-weight: 600; letter-spacing: -.045em; line-height: 1; max-width: 22ch; }
+    .acc { display: flex; gap: 10px; height: clamp(420px, 52vw, 560px); }
+    .slice {
+      position: relative; flex: 1; min-width: 0;
+      border-radius: var(--r); overflow: hidden; text-decoration: none; color: #fff;
+      transition: flex .8s var(--ease);
+    }
+    .slice:hover, .slice:focus-visible { flex: 3.2; }
+    .slice .photo { position: absolute; inset: 0; }
+    .slice .photo::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to top, rgb(18 18 20 / .85), rgb(18 18 20 / .1) 60%); }
+    .slice-body { position: absolute; left: 24px; right: 24px; bottom: 24px; z-index: 2; }
+    .slice-body h3 { font-size: 26px; font-weight: 600; letter-spacing: -.03em; white-space: nowrap; }
+    .slice-body p { margin-top: 8px; max-width: 34ch; font-size: 15px; line-height: 1.5; color: rgb(255 255 255 / .8); opacity: 0; transform: translateY(8px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
+    .slice:hover .slice-body p, .slice:focus-visible .slice-body p { opacity: 1; transform: none; transition-delay: .2s; }
+    .slice-icon { position: absolute; top: 20px; left: 20px; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgb(255 255 255 / .14); backdrop-filter: blur(8px); font-size: 20px; }
+
+    /* ---------- Carrousel des participants ---------- */
+    .people { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(32px, 6vw, 96px); align-items: center; }
+    .people h2 { font-size: clamp(36px, 4.4vw, 64px); font-weight: 600; letter-spacing: -.045em; line-height: 1; }
+    .people > div > p { margin-top: 16px; font-size: 18px; color: var(--muted); max-width: 34ch; line-height: 1.55; }
+    .avatars { display: flex; margin-top: 36px; }
+    .avatar {
+      width: 64px; height: 64px; margin-left: -14px; border-radius: 50%;
+      border: 3px solid var(--bg); background: var(--surface-2) center / cover;
+      cursor: pointer; filter: grayscale(1); opacity: .6;
+      transition: transform .5s var(--ease), filter .5s var(--ease), opacity .5s var(--ease);
+    }
+    .avatar:first-child { margin-left: 0; }
+    .avatar[aria-pressed="true"] { filter: none; opacity: 1; transform: translateY(-6px) scale(1.08); z-index: 1; }
+    .avatar:hover { opacity: 1; }
+    .quote-card { position: relative; padding: clamp(28px, 4vw, 56px); border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); min-height: 300px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px; }
+    .quote { font-size: clamp(24px, 2.6vw, 36px); font-weight: 500; letter-spacing: -.03em; line-height: 1.2; }
+    .quote-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .who { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .who img { width: 40px; height: 40px; border-radius: 50%; }
+    .who b { display: block; font-weight: 500; }
+    .who span { font-size: 13px; color: var(--faint); }
+    .arrows { display: flex; gap: 8px; }
+    .arrow { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font-size: 18px; cursor: pointer; transition: border-color .3s var(--ease), transform .2s var(--ease); }
+    .arrow:hover { border-color: var(--text); }
+    .arrow:active { transform: scale(.94); }
+
+    /* ---------- Appel final ---------- */
+    .cta { position: relative; border-radius: calc(var(--r) * 1.6); background: var(--text); color: var(--bg); padding: clamp(48px, 8vw, 120px) clamp(28px, 6vw, 96px); overflow: hidden; }
+    .cta::before { content: ""; position: absolute; right: -10%; bottom: -60%; width: 70%; aspect-ratio: 1; background: radial-gradient(circle, rgb(var(--accent-rgb) / .55), transparent 60%); filter: blur(30px); pointer-events: none; }
+    .cta h2 { position: relative; font-size: clamp(44px, 7vw, 112px); font-weight: 600; letter-spacing: -.055em; line-height: .95; max-width: 14ch; }
+    .cta p { position: relative; margin-top: 24px; max-width: 44ch; font-size: 18px; line-height: 1.55; opacity: .7; }
+    .cta .hero-ctas { position: relative; }
+    .cta .btn-ghost { background: transparent; color: var(--bg); border-color: rgb(255 255 255 / .3); }
+    .cta .btn-ghost:hover { border-color: var(--bg); }
+    @media (prefers-color-scheme: dark) { .cta .btn-ghost { border-color: rgb(18 18 20 / .3); } }
+
+    footer { padding: 48px 0 64px; }
+    .foot { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+    .foot nav { display: flex; gap: 24px; flex-wrap: wrap; }
+    .foot a { text-decoration: none; transition: color .3s var(--ease); }
+    .foot a:hover { color: var(--accent-text); }
 
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
     /* ---------- Mobile ---------- */
-    @media (max-width: 860px) {
-      .layout { grid-template-columns: 1fr; gap: 48px; padding: 32px 16px 48px; }
-      .intro { position: static; gap: 32px; }
-      .days { grid-template-columns: repeat(2, 1fr); }
-      .day { min-height: 104px; }
+    @media (max-width: 900px) {
+      .nav-link { display: none; }
+      .hero { padding-top: 120px; }
+      .hero { flex-direction: column; align-items: stretch; }
+      .hero h1 { font-size: clamp(2.1rem, 9.4vw, 2.6rem); }
+      .hero-float { position: relative; right: auto; bottom: auto; margin: 48px 16px 0; width: auto; aspect-ratio: 16 / 10; z-index: 0; }
+      .bento { grid-template-columns: 1fr 1fr; }
+      .cell-a, .cell-d { grid-column: span 2; }
+      .cell-a { grid-row: span 1; min-height: 340px; }
+      .rules { grid-template-columns: 1fr; gap: 12px; }
+      .split, .people { grid-template-columns: 1fr; }
+      .acc { flex-direction: column; height: auto; }
+      .slice { flex: none; height: 200px; }
+      .slice:hover { flex: none; }
+      .slice-body p { opacity: 1; transform: none; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation: none !important; transition: none !important; }
-      .day { opacity: 1; }
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+      .manifesto .w { opacity: 1; }
     }
   </style>
 </head>
 <body>
-  <div class="layout">
-    <aside class="intro">
-      <div>
-        <p class="eyebrow mono"><span class="beat"></span>#devtober · octobre 2026</p>
-        <h1>Devtober<span>/26</span></h1>
-        <p class="lead"><strong>1 mot par jour, 1 création en code.</strong> Jeu, animation, art génératif, outil : la forme est libre, le mot donne la direction.</p>
+  <main>
+    <nav class="nav" aria-label="Navigation principale">
+      <a class="brand" href="#top">Devtober<span>/26</span></a>
+      <a class="nav-link" href="#mots">Les mots</a>
+      <a class="nav-link" href="#jour-01">Jour 01</a>
+      <a class="nav-link" href="#participants">Participants</a>
+      <a class="btn btn-primary" href="https://github.com/withRen/devtober">Code source</a>
+    </nav>
+
+    <!-- Attention -->
+    <section class="hero" id="top">
+      <div class="wrap hero-inner">
+        <h1 data-reveal>Un mot par jour, <span class="inline-pic photo"><img src="https://picsum.photos/seed/devtober-signal/400/200" alt="" loading="eager"></span> une création en <em>code</em>.</h1>
+        <p data-reveal>Tout octobre, chaque mot devient un jeu, une animation, un outil ou un son. Publié le jour même, imparfait s'il le faut.</p>
+        <div class="hero-ctas" data-reveal>
+          <a class="btn btn-primary" id="hero-cta" href="day-01-pulse/">Jouer au jour 01 <i class="ph ph-arrow-right"></i></a>
+          <a class="btn btn-ghost" href="#mots">Voir les 31 mots</a>
+        </div>
       </div>
+      <div class="hero-float photo" data-float><img src="https://picsum.photos/seed/devtober-oscilloscope/800/1000" alt="Écran d'oscilloscope en noir et blanc"></div>
+    </section>
 
-      <div class="today-card" id="today"></div>
-
-      <div>
-        <div class="progress-head mono"><span>Progression</span><span id="count"></span></div>
-        <div class="bar" id="bar" aria-hidden="true"></div>
+    <!-- Intérêt -->
+    <section class="chapter" style="padding-top: 0">
+      <div class="wrap bento">
+        <a class="cell cell-a hover-zoom" id="today-cell" href="day-01-pulse/">
+          <canvas id="pulse" aria-hidden="true"></canvas>
+          <span class="label mono" id="today-label">Mot du jour</span>
+          <div class="row">
+            <span class="today-word" id="today-word">Pulse</span>
+            <span class="go"><i class="ph ph-arrow-up-right"></i></span>
+          </div>
+        </a>
+        <div class="cell cell-b">
+          <span class="label mono">Progression</span>
+          <div>
+            <p class="big-num" id="count">1<small> / 31</small></p>
+            <div class="bar" id="bar" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="cell cell-c hover-zoom">
+          <div class="photo"><img src="https://picsum.photos/seed/devtober-circuit/800/800" alt="Circuit électronique en gros plan" loading="lazy"></div>
+        </div>
+        <div class="cell cell-d">
+          <span class="label mono">Les règles</span>
+          <div class="rules">
+            <div><b>1h30 à 2h</b><span>par jour, pas plus.</span></div>
+            <div><b>Forme libre</b><span>jeu, art, outil, son.</span></div>
+            <div><b>#devtober</b><span>pour partager.</span></div>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <nav class="links">
-        <a href="https://github.com/withRen/devtober">Code source</a>
-        <a href="https://github.com/topics/devtober">Les autres participants</a>
-      </nav>
-    </aside>
+    <!-- Désir : texte révélé -->
+    <section class="chapter" style="padding-top: 0">
+      <div class="wrap">
+        <p class="manifesto" id="manifesto">Comme l'Inktober, mais pour les devs. Pas besoin que ce soit parfait, l'important c'est de <span class="accent">publier</span>. On participe quand on veut, et chaque mot s'interprète comme on le sent.</p>
+      </div>
+    </section>
 
-    <main class="days" id="days" aria-label="Les 31 jours"></main>
-  </div>
+    <!-- Désir : 31 mots, titre épinglé -->
+    <section class="chapter" id="mots" style="padding-top: 0">
+      <div class="wrap split" id="split">
+        <div class="split-title" id="split-title">
+          <h2>Les 31 mots</h2>
+          <p>Un par jour, de Pulse à Wake. Les jours publiés s'ouvrent, celui du jour est entouré de rouge.</p>
+          <a class="btn btn-ghost" href="https://github.com/withRen/devtober#les-31-mots">Liste sur GitHub <i class="ph ph-arrow-up-right"></i></a>
+        </div>
+        <div class="weeks" id="weeks"></div>
+      </div>
+    </section>
 
+    <!-- Désir : le jour 01 -->
+    <section class="chapter" id="jour-01" style="padding-top: 0">
+      <div class="wrap">
+        <div class="acc-head">
+          <h2>Jour 01, Pulse : un instrument qui bat.</h2>
+          <a class="btn btn-primary" href="day-01-pulse/">Ouvrir Pulse <i class="ph ph-arrow-right"></i></a>
+        </div>
+        <div class="acc">
+          <a class="slice" href="day-01-pulse/">
+            <div class="photo"><img src="https://picsum.photos/seed/pulse-synth-knobs/900/1100" alt="" loading="lazy"></div>
+            <span class="slice-icon"><i class="ph ph-wave-sine"></i></span>
+            <div class="slice-body"><h3>Générateur</h3><p>Fréquence de 20 Hz à 4 kHz, quatre formes d'onde, une deuxième voix et six presets.</p></div>
+          </a>
+          <a class="slice" href="day-01-pulse/">
+            <div class="photo"><img src="https://picsum.photos/seed/pulse-vinyl-groove/900/1100" alt="" loading="lazy"></div>
+            <span class="slice-icon"><i class="ph ph-music-notes"></i></span>
+            <div class="slice-body"><h3>Ton son</h3><p>Dépose un fichier audio, change sa vitesse, lis-le à l'envers, ajoute un battement par-dessus.</p></div>
+          </a>
+          <a class="slice" href="day-01-pulse/">
+            <div class="photo"><img src="https://picsum.photos/seed/pulse-drum-pads/900/1100" alt="" loading="lazy"></div>
+            <span class="slice-icon"><i class="ph ph-squares-four"></i></span>
+            <div class="slice-body"><h3>Pads</h3><p>Huit sons au clavier, des raccourcis que tu choisis, et un bass boost jusqu'à +24 dB.</p></div>
+          </a>
+          <a class="slice" href="day-01-pulse/">
+            <div class="photo"><img src="https://picsum.photos/seed/pulse-tape-timeline/900/1100" alt="" loading="lazy"></div>
+            <span class="slice-icon"><i class="ph ph-film-strip"></i></span>
+            <div class="slice-body"><h3>Timeline</h3><p>Quatre pistes : place, coupe et raccourcis tes sons, écoute le tout et exporte en WAV.</p></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Désir : participants (vrais dépôts du topic devtober) -->
+    <section class="chapter" id="participants" style="padding-top: 0">
+      <div class="wrap people">
+        <div>
+          <h2>Ils participent aussi.</h2>
+          <p>Les dépôts publics marqués du topic devtober sur GitHub, avec leur propre description.</p>
+          <div class="avatars" id="avatars"></div>
+        </div>
+        <div class="quote-card">
+          <p class="quote" id="quote"></p>
+          <div class="quote-foot">
+            <a class="who" id="who" href="#"><img id="who-img" alt=""><span><b id="who-name"></b><span id="who-repo"></span></span></a>
+            <div class="arrows">
+              <button class="arrow" id="prev" type="button" aria-label="Participant précédent"><i class="ph ph-arrow-left"></i></button>
+              <button class="arrow" id="next" type="button" aria-label="Participant suivant"><i class="ph ph-arrow-right"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action -->
+    <section class="chapter" style="padding-top: 0">
+      <div class="wrap">
+        <div class="cta">
+          <h2>À ton tour de coder.</h2>
+          <p>Crée un dépôt public avec un dossier par jour, ajoute le topic devtober, et poste ta création avec #devtober.</p>
+          <div class="hero-ctas">
+            <a class="btn btn-primary" href="https://github.com/new">Créer mon dépôt <i class="ph ph-arrow-up-right"></i></a>
+            <a class="btn btn-ghost" href="https://github.com/topics/devtober">Voir le topic</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap foot">
+        <span>Devtober 2026, par withRen</span>
+        <nav>
+          <a href="#mots">Les mots</a>
+          <a href="day-01-pulse/">Jour 01</a>
+          <a href="https://github.com/withRen/devtober">Code source</a>
+          <a href="https://github.com/topics/devtober">#devtober</a>
+        </nav>
+      </div>
+    </footer>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script>
+    const $ = id => document.getElementById(id);
+
     const WORDS = [
       "Pulse", "Loop", "Bloom", "Drift", "Chaos", "Tiny", "Swarm", "Maze",
       "Gravity", "Fold", "Ripple", "Lost", "Tangle", "Bounce", "Shadow", "Tide",
@@ -279,73 +456,158 @@
     const DONE = [1];
 
     const now = new Date();
-    const inOctober = now.getFullYear() === 2026 && now.getMonth() === 9;
-    const today = inOctober ? now.getDate() : (now > new Date(2026, 9, 31) ? 32 : 0);
+    const today = now.getFullYear() === 2026 && now.getMonth() === 9 ? now.getDate() : (now > new Date(2026, 9, 31) ? 32 : 0);
     const pad = n => String(n).padStart(2, "0");
     const slug = i => `day-${pad(i)}-${WORDS[i - 1].toLowerCase()}`;
-    const weekday = i => new Date(2026, 9, i).toLocaleDateString("fr-FR", { weekday: "long" });
+    const latest = Math.max(...DONE);
 
-    function state(i) {
-      if (DONE.includes(i)) return "done";
-      if (i === today) return "today";
-      return i < today ? "missed" : "future";
-    }
+    // ----- Mot du jour, progression -----
+    const focus = today >= 1 && today <= 31 ? today : latest;
+    $("today-word").textContent = WORDS[focus - 1];
+    $("today-label").textContent = today >= 1 && today <= 31
+      ? `Mot du jour, ${new Date(2026, 9, today).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}`
+      : "Dernière création";
+    const focusHref = DONE.includes(focus) ? `${slug(focus)}/` : `${slug(latest)}/`;
+    $("today-cell").href = focusHref;
+    $("hero-cta").href = `${slug(latest)}/`;
+    $("hero-cta").firstChild.textContent = `Jouer au jour ${pad(latest)} `;
+    $("count").innerHTML = `${DONE.length}<small> / 31</small>`;
+    $("bar").innerHTML = WORDS.map((_, i) => `<i class="${DONE.includes(i + 1) ? "done" : ""}"></i>`).join("");
 
-    // Grille, groupée par semaine
-    const days = document.getElementById("days");
-    let html = "";
-    WORDS.forEach((w, idx) => {
-      const i = idx + 1;
-      if (idx % 7 === 0) {
-        const end = Math.min(i + 6, 31);
-        html += `<div class="week-label mono">Semaine ${idx / 7 + 1} · ${pad(i)}–${pad(end)}</div>`;
+    // ----- Les 31 mots, par semaine -----
+    let weeks = "";
+    for (let w = 0; w < 5; w++) {
+      const from = w * 7 + 1, to = Math.min(from + 6, 31);
+      let cards = "";
+      for (let i = from; i <= to; i++) {
+        const done = DONE.includes(i);
+        const s = done ? "done" : i === today ? "today" : i < today ? "missed" : "future";
+        const status = { done: 'Voir <i class="ph ph-arrow-up-right"></i>', today: "Aujourd'hui", missed: "", future: "" }[s];
+        const inner = `<span class="day-top mono"><span>${pad(i)}</span><span class="status">${status}</span></span><span class="word">${WORDS[i - 1]}</span>`;
+        cards += done ? `<a class="day done" href="${slug(i)}/">${inner}</a>` : `<div class="day ${s}">${inner}</div>`;
       }
-      const s = state(i);
-      const status = {
-        done: `Voir <span class="arrow">&rarr;</span>`,
-        today: "Aujourd'hui",
-        missed: "",
-        future: ""
-      }[s];
-      const inner = `
-        <span class="day-top mono"><span>${pad(i)}</span><span class="status">${status}</span></span>
-        <span class="word">${w}</span>`;
-      html += s === "done"
-        ? `<a class="day done" href="${slug(i)}/" style="--i:${idx}">${inner}</a>`
-        : `<div class="day ${s}" style="--i:${idx}">${inner}</div>`;
-    });
-    days.innerHTML = html;
+      weeks += `<div class="week"><h3>Du ${from} au ${to} octobre</h3><div class="days">${cards}</div></div>`;
+    }
+    $("weeks").innerHTML = weeks;
 
-    // Halo qui suit le curseur sur les jours publiés
-    days.addEventListener("pointermove", e => {
-      const card = e.target.closest(".day.done");
-      if (!card) return;
-      const r = card.getBoundingClientRect();
-      card.style.setProperty("--x", `${e.clientX - r.left}px`);
-      card.style.setProperty("--y", `${e.clientY - r.top}px`);
-    });
+    // ----- Participants : topic devtober en direct, avec une liste de secours -----
+    let people = [
+      { owner: "zaderlyl", repo: "DevTober", desc: "DevTober 2026 ( variante du Inktober pour les dévelopeur )" },
+      { owner: "dyzlek", repo: "devtober", desc: "Devtober 2026 : un mot par jour en octobre, une création en code. #devtober" },
+      { owner: "DamienMarill", repo: "devtober", desc: "Devtober 2026 : un mot par jour, une création en code" },
+      { owner: "Bebbou", repo: "devtober-2026", desc: "Petite aventure du côté du dev avec le DevTober 2026 (aled les themes)" }
+    ];
+    let current = 0;
 
-    // Mot du jour
-    const t = document.getElementById("today");
-    if (today >= 1 && today <= 31) {
-      const done = DONE.includes(today);
-      t.innerHTML = `
-        <p class="label mono">Mot du jour · ${weekday(today)} ${today} octobre</p>
-        <span class="today-word">${WORDS[today - 1]}</span>
-        <p class="today-meta mono">${done ? `<a href="${slug(today)}/" style="color:var(--accent);text-decoration:none">Création publiée &rarr;</a>` : "En cours de création"}</p>`;
-    } else if (today === 0) {
-      t.innerHTML = `<p class="label mono">Bientôt</p><span class="today-word">1er octobre</span><p class="today-meta mono">Premier mot : ${WORDS[0]}</p>`;
-    } else {
-      t.innerHTML = `<p class="label mono">Terminé</p><span class="today-word">${DONE.length} créations</span><p class="today-meta mono">Rendez-vous l'an prochain</p>`;
+    function renderPeople() {
+      $("avatars").innerHTML = people.map((p, i) =>
+        `<button class="avatar" type="button" data-i="${i}" aria-pressed="${i === current}" aria-label="${p.owner}" style="background-image:url(https://github.com/${p.owner}.png?size=128)"></button>`
+      ).join("");
+      showPerson(current, false);
     }
 
-    // Barre de progression
-    document.getElementById("bar").innerHTML = WORDS.map((_, idx) => {
-      const i = idx + 1;
-      const cls = DONE.includes(i) ? "done" : i === today ? "now" : "";
-      return `<i class="${cls}" style="--i:${idx}"></i>`;
-    }).join("");
-    document.getElementById("count").innerHTML = `<b>${DONE.length}</b> / 31`;
+    function showPerson(i, animate = true) {
+      current = (i + people.length) % people.length;
+      const p = people[current];
+      const apply = () => {
+        $("quote").textContent = `« ${p.desc} »`;
+        $("who").href = `https://github.com/${p.owner}/${p.repo}`;
+        $("who-img").src = `https://github.com/${p.owner}.png?size=80`;
+        $("who-name").textContent = p.owner;
+        $("who-repo").textContent = `${p.owner}/${p.repo}`;
+        document.querySelectorAll(".avatar").forEach(a => a.setAttribute("aria-pressed", +a.dataset.i === current));
+      };
+      if (!animate || !window.gsap || reduce) { apply(); return; }
+      gsap.to("#quote, #who", { opacity: 0, y: -8, duration: .25, ease: "power2.in", onComplete() {
+        apply();
+        gsap.fromTo("#quote, #who", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .6, ease: "expo.out" });
+      } });
+    }
+
+    $("avatars").addEventListener("click", e => { const a = e.target.closest(".avatar"); if (a) showPerson(+a.dataset.i); });
+    $("prev").addEventListener("click", () => showPerson(current - 1));
+    $("next").addEventListener("click", () => showPerson(current + 1));
+
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    renderPeople();
+
+    fetch("https://api.github.com/search/repositories?q=topic:devtober&sort=updated&per_page=20")
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => {
+        const live = d.items.filter(r => r.description).map(r => ({ owner: r.owner.login, repo: r.name, desc: r.description }));
+        if (live.length) { people = live; current = 0; renderPeople(); }
+      })
+      .catch(() => {});
+
+    // ----- Battement dans la carte du mot du jour -----
+    (function pulse() {
+      const c = $("pulse"), g = c.getContext("2d");
+      let W, H;
+      const size = () => {
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        W = c.clientWidth; H = c.clientHeight;
+        c.width = W * dpr; c.height = H * dpr;
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      };
+      new ResizeObserver(size).observe(c);
+      size();
+      const frame = t => {
+        g.clearRect(0, 0, W, H);
+        const cx = W * .72, cy = H * .38, base = Math.min(W, H) * .16;
+        const period = 1000;
+        for (let k = 0; k < 3; k++) {
+          const age = ((t / period + k / 3) % 1);
+          g.beginPath();
+          g.arc(cx, cy, base + age * base * 2.2, 0, Math.PI * 2);
+          g.strokeStyle = `rgb(235 10 30 / ${(1 - age) * .5})`;
+          g.lineWidth = 1.5;
+          g.stroke();
+        }
+        const beat = Math.pow(Math.max(0, Math.sin((t / period) * Math.PI * 2)), 12);
+        g.beginPath();
+        g.arc(cx, cy, base * (.55 + beat * .25), 0, Math.PI * 2);
+        g.fillStyle = "rgb(235 10 30 / .9)";
+        g.fill();
+        if (!reduce) requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    })();
+
+    // ----- GSAP -----
+    if (window.gsap && !reduce) {
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Entrée du héro
+      gsap.from("[data-reveal]", { y: 32, opacity: 0, duration: 1.1, ease: "expo.out", stagger: .12, delay: .1 });
+      gsap.from("[data-float]", { y: 80, opacity: 0, rotate: 4, duration: 1.4, ease: "expo.out", delay: .35 });
+      gsap.to("[data-float]", { yPercent: -18, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+
+      // Mosaïque : les cartes montent à l'entrée
+      gsap.from(".cell", { y: 48, opacity: 0, duration: 1, ease: "expo.out", stagger: .08, scrollTrigger: { trigger: ".bento", start: "top 85%" } });
+
+      // Texte révélé mot à mot au défilement
+      const m = $("manifesto");
+      m.innerHTML = m.innerHTML.replace(/(<span class="accent">[^<]+<\/span>)|([^\s<]+)/g, (all, acc) =>
+        acc ? acc.replace('class="accent"', 'class="accent w"') : `<span class="w">${all}</span>`);
+      gsap.to("#manifesto .w", { opacity: 1, ease: "none", stagger: .1, scrollTrigger: { trigger: m, start: "top 80%", end: "bottom 45%", scrub: true } });
+
+      // Titre « Les 31 mots » épinglé à gauche pendant que les semaines défilent
+      ScrollTrigger.matchMedia({
+        "(min-width: 901px)": () => {
+          ScrollTrigger.create({ trigger: "#split", start: "top 120px", end: () => `bottom ${120 + $("split-title").offsetHeight}px`, pin: "#split-title", pinSpacing: false, invalidateOnRefresh: true });
+        }
+      });
+      gsap.utils.toArray(".week").forEach(w => {
+        gsap.from(w.querySelectorAll(".day"), { y: 24, opacity: 0, duration: .8, ease: "expo.out", stagger: .04, scrollTrigger: { trigger: w, start: "top 85%" } });
+      });
+
+      // Les polices changent les hauteurs : on recalcule une fois chargées
+      document.fonts.ready.then(() => ScrollTrigger.refresh());
+
+      // Accordéon et appel final
+      gsap.from(".slice", { y: 60, opacity: 0, duration: 1.1, ease: "expo.out", stagger: .1, scrollTrigger: { trigger: ".acc", start: "top 85%" } });
+      gsap.from(".cta", { scale: .94, opacity: 0, duration: 1.2, ease: "expo.out", scrollTrigger: { trigger: ".cta", start: "top 85%" } });
+    }
   </script>
 </body>
 </html>
