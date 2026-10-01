@@ -5,6 +5,8 @@
    ========================================================= */
 
 import { createNodeEditor, defaultGraph } from "./nodes.js";
+import { createTimeline } from "./timeline.js";
+import { createGpu } from "./gpu.js";
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -22,7 +24,8 @@ const DEFAULTS = {
   tilt: 0.45, orbits: 0, chroma: 0, grain: 0,
   glyphSize: 20, glyphs: "0123456789", flicker: 0.25,
   bgFit: "cover", bgVeil: 0.35, bgBlur: 0,
-  seed: 7, format: "ecran", freehand: null, preset: "galaxie", graph: null
+  seed: 7, format: "ecran", freehand: null, preset: "galaxie", graph: null,
+  duration: 10, keys: null
 };
 const SECTION_TITLES = ["Forme", "Boucles", "Mouvement", "Rendu", "Effets", "Couleurs", "Cadrage"];
 
@@ -228,7 +231,9 @@ function buildCurve() {
     const tx = curve[b] - curve[a], ty = curve[b + 1] - curve[a + 1], l = Math.hypot(tx, ty) || 1;
     normals[i * 2] = -ty / l; normals[i * 2 + 1] = tx / l;
   }
+  curveVersion++;
 }
+let curveVersion = 0, lutVersion = 0;
 
 /* ---------- Particules ---------- */
 const DUST = 65535, ORBIT = 60000;
@@ -396,6 +401,7 @@ function buildLut() {
     lutRGB.push(col);
     lut[i] = (255 << 24) | (col[2] << 16) | (col[1] << 8) | col[0];
   }
+  lutVersion++;
 }
 
 /* ---------- Rendu ---------- */
@@ -833,6 +839,27 @@ function composeBackground(g, w, h, cached) {
 
 const blobToDataURL = blob => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); });
 
+/* ---------- Carte graphique ---------- */
+// Le mode Particules passe par WebGL2 quand c'est possible (profil haute performance,
+// donc la carte dédiée si la machine en a une). Sinon, rendu par le processeur.
+let gpu = null, gpuError = "";
+function startGpu() {
+  if (gpu) return gpu;
+  try { gpu = createGpu(); gpuError = gpu ? "" : "WebGL2 ou les textures flottantes ne sont pas disponibles"; }
+  catch (e) { gpu = null; gpuError = e.message; }
+  if (gpu) gpu.canvas.addEventListener("webglcontextlost", e => { e.preventDefault(); gpu = null; gpuError = "Contexte WebGL perdu"; toast("Carte graphique indisponible, rendu par le processeur"); });
+  return gpu;
+}
+const useGpu = () => !!gpu && prefs.gpu && !gpu.lost();
+const gpuSrc = () => ({ S, P, curve, normals, curveVersion, noise: noiseT, lut, lutVersion, DMAX, orbitTilt, transform });
+
+// Nombre d'images passées et poids de départ pour un tampon complet (traînées comprises)
+function primeParams(w, h) {
+  const samples = S.trail > 0 ? Math.round(6 + S.trail * 40) : 1;
+  const norm = 1 - Math.pow(S.trail, samples);
+  return { samples, base: particleWeight(w, h) * (1 - S.trail) / Math.max(norm, 1e-6) };
+}
+
 /* ---------- Image par image ---------- */
 function resize() {
   const [fw, fh] = formatSize(S.format);
@@ -859,22 +886,31 @@ function resize() {
 
 // Les nœuds remplacent temporairement certains réglages le temps d'une image
 const CURVE_KEYS = ["petals", "lissA", "lissB", "starN", "starDepth"];
-let editor = null;
+let editor = null, timeline = null;
 const lastApplied = {};
+let inOverrides = false;
 function controlOf(key) {
   for (const sec of CONTROLS) for (const c of sec.items) if (c.key === key) return c;
   return null;
 }
 function withOverrides(time, fn) {
-  const ov = editor ? editor.evaluate(time) : null;
+  // Déjà dans un rendu remplacé (export, tampon en pause) : on ne remplace pas deux fois
+  if (inOverrides) { fn(); return null; }
+  const kf = timeline ? timeline.evaluate(time) : null;
+  const nd = editor ? editor.evaluate(time) : null;
+  const ov = kf || nd ? { ...kf, ...nd } : null;
   if (!ov || !Object.keys(ov).length) { fn(); return ov; }
   const saved = {};
   let curveDirty = false, lutDirty = false;
   for (const [key, raw] of Object.entries(ov)) {
     const c = controlOf(key);
     if (!c || c.rebuild) continue;
-    let v = Math.max(c.min, Math.min(c.max, raw));
-    if (c.step >= 1) v = Math.round(v);
+    let v = raw;
+    if (c.type === "color") { if (typeof v !== "string") continue; }
+    else {
+      v = Math.max(c.min, Math.min(c.max, +raw));
+      if (c.step >= 1) v = Math.round(v);
+    }
     saved[key] = S[key];
     S[key] = v;
     if (lastApplied[key] !== v) {
@@ -884,8 +920,9 @@ function withOverrides(time, fn) {
     }
   }
   if (curveDirty) buildCurve();
-  if (lutDirty) buildLut();
-  try { fn(); } finally { Object.assign(S, saved); }
+  if (lutDirty) { buildLut(); atlasKey = ""; glyphKey = ""; }
+  inOverrides = true;
+  try { fn(); } finally { Object.assign(S, saved); inOverrides = false; }
   return ov;
 }
 
@@ -897,6 +934,8 @@ function frame(now) {
   const t0 = performance.now();
   const ov = withOverrides(t, () => renderFrame());
   if (editor) editor.tick(ov);
+  if (timeline && !$("timeline").hidden) timeline.tick();
+  if (frameCount % 6 === 0) syncAnimated(ov);
 
   msAvg = msAvg * 0.9 + (performance.now() - t0) * 0.1;
   if (frameCount++ % 15 === 0) $("perf").textContent = `${msAvg.toFixed(1)} ms`;
@@ -908,6 +947,9 @@ function renderFrame() {
     drawVectors(ctx, W, H, t);
   } else if (S.mode === "glyphes") {
     drawGlyphs(ctx, W, H, t);
+  } else if (S.mode === "points" && useGpu()) {
+    // Sur la carte graphique : estompage, dépôt et couleurs, puis copie dans l'aperçu
+    ctx.drawImage(gpu.frame(gpuSrc(), W, H, t, particleWeight(W, H) * (1 - S.trail), S.trail, !paused), 0, 0);
   } else {
     // Traînées : le tampon s'estompe au lieu d'être effacé
     if (!paused) {
@@ -926,11 +968,13 @@ let frameCount = 0;
 
 // Remplit le tampon d'un coup (après un changement de réglage, ou en pause)
 function primeBuffer(b, w, h, time) {
-  b.fill(0);
+  withOverrides(time, () => primeRaw(b, w, h, time));
+}
+function primeRaw(b, w, h, time) {
   // Même résultat que l'aperçu en direct : chaque image passée pèse trail^i
-  const samples = S.trail > 0 ? Math.round(6 + S.trail * 40) : 1;
-  const norm = 1 - Math.pow(S.trail, samples);
-  const base = particleWeight(w, h) * (1 - S.trail) / Math.max(norm, 1e-6);
+  const { samples, base } = primeParams(w, h);
+  if (b === buf && S.mode === "points" && useGpu()) { gpu.prime(gpuSrc(), w, h, time, samples, base, S.trail); return; }
+  b.fill(0);
   for (let i = 0; i < samples; i++) splat(b, w, h, time - i / 60, base * Math.pow(S.trail, i));
 }
 
@@ -955,12 +999,14 @@ async function exportPNG() {
   } catch (err) {
     toast("L'export a échoué : résolution trop grande pour ce navigateur ?");
   } finally {
+    if (gpuResized) { gpuResized = false; primeBuffer(buf, W, H, t); }
     btn.disabled = false;
     btn.classList.remove("busy");
     btn.querySelector("span").textContent = "Exporter";
   }
 }
 
+let gpuResized = false;
 function renderStill(c, g, w, h) {
   {
     // Les caractères et les traits gardent la même taille relative que dans l'aperçu
@@ -969,6 +1015,10 @@ function renderStill(c, g, w, h) {
       drawVectors(g, w, h, t);
     } else if (S.mode === "glyphes") {
       drawGlyphs(g, w, h, t);
+    } else if (S.mode === "points" && useGpu() && Math.max(w, h) <= gpu.maxSize) {
+      const { samples, base } = primeParams(w, h);
+      g.drawImage(gpu.prime(gpuSrc(), w, h, t, samples, base, S.trail), 0, 0);
+      gpuResized = true;
     } else {
       const b = new Float32Array(w * h);
       primeBuffer(b, w, h, t);
@@ -1161,7 +1211,57 @@ let tab = "styles";
 try { tab = localStorage.getItem("loop-tab") || tab; } catch (e) {}
 if (!TABS.some(x => x.id === tab)) tab = "styles";
 
-const KEYS = [["Espace", "Pause et lecture"], ["R", "Combinaison aléatoire"], ["N", "Éditeur de nœuds"], ["H", "Masquer les réglages"], [/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ V" : "Ctrl V", "Coller une image de fond"]];
+
+// Losange à côté d'un réglage animable : pose ou retire une image clé à l'instant courant
+const kfButton = c => `<button type="button" class="kf" data-kf="${c.key}" aria-label="Image clé pour ${c.label}" title="Image clé à l'instant courant"><i class="ph ph-diamond"></i></button>`;
+$("controls").addEventListener("click", e => {
+  const b = e.target.closest(".kf");
+  if (!b) return;
+  e.preventDefault();
+  const key = b.dataset.kf;
+  const wasAnimated = timeline.isAnimated(key);
+  timeline.toggleKey(key, currentValue(key));
+  if (!wasAnimated && timeline.isAnimated(key)) {
+    toggleTimeline(true);
+    toast(`${controlOf(key).label} est animé : déplace la tête de lecture et change la valeur pour poser d'autres clés`);
+  }
+  syncAnimated();
+});
+
+// Valeur affichée d'un réglage : animée si une piste ou un nœud le pilote
+let lastOv = null;
+function currentValue(key) {
+  if (lastOv && key in lastOv) {
+    const c = controlOf(key);
+    if (c.type === "color") return lastOv[key];
+    let v = Math.max(c.min, Math.min(c.max, +lastOv[key]));
+    return c.step >= 1 ? Math.round(v) : v;
+  }
+  return S[key];
+}
+
+// Les réglages animés suivent la lecture (environ 10 fois par seconde)
+function syncAnimated(ov = lastOv) {
+  lastOv = ov;
+  if (!timeline) return;
+  for (const b of document.querySelectorAll("#controls .kf")) {
+    const key = b.dataset.kf, anim = timeline.isAnimated(key), on = anim && timeline.hasKeyAt(key);
+    b.classList.toggle("anim", anim);
+    b.querySelector("i").className = on ? "ph-fill ph-diamond" : "ph ph-diamond";
+  }
+  if (!ov) return;
+  for (const key of Object.keys(ov)) {
+    const row = document.querySelector(`.ctl[data-key="${key}"]`);
+    if (!row || row.hidden) continue;
+    const c = controlOf(key), input = row.querySelector("input");
+    if (!input || document.activeElement === input) continue;
+    const v = currentValue(key);
+    if (c.type === "color") { input.value = v; continue; }
+    input.value = v;
+    row.querySelector("output").textContent = c.fmt ? c.fmt(v) : fmtNum(v);
+    input.style.setProperty("--p", `${(v - c.min) / (c.max - c.min) * 100}%`);
+  }
+}
 
 function controlRow(c) {
   const row = document.createElement("div");
@@ -1190,7 +1290,7 @@ function controlRow(c) {
       changed({ lut: true });
     });
   } else if (c.type === "color") {
-    row.innerHTML = `<label class="color"><span>${c.label}</span><input type="color" value="${S[c.key]}"></label>`;
+    row.innerHTML = `<label class="color"><span class="lbl">${kfButton(c)}<span>${c.label}</span></span><input type="color" value="${S[c.key]}"></label>`;
     row.querySelector("input").addEventListener("input", e => { S.palette = ""; set(c.key, e.target.value, { lut: true }); });
   } else if (c.type === "toggle") {
     row.innerHTML = `<label class="toggle"><span>${c.label}</span><input type="checkbox"><i></i></label>`;
@@ -1207,7 +1307,7 @@ function controlRow(c) {
       else if (act.dataset.act === "clear") clearBackground();
     });
   } else {
-    row.innerHTML = `<div class="ctl-head"><label for="r-${c.key}">${c.label}</label><output></output></div><input id="r-${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}">`;
+    row.innerHTML = `<div class="ctl-head"><span class="lbl">${c.rebuild ? "" : kfButton(c)}<label for="r-${c.key}">${c.label}</label></span><output></output></div><input id="r-${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}">`;
     const input = row.querySelector("input");
     input.addEventListener("input", () => set(c.key, +input.value, { rebuild: c.rebuild, curve: CURVE_KEYS.includes(c.key), lut: c.lut }));
   }
@@ -1245,7 +1345,8 @@ function buildPanel() {
       const g = document.createElement("section");
       g.className = "group";
       g.style.setProperty("--i", secs.length);
-      g.innerHTML = `<h3>Raccourcis</h3><div class="shortcuts">${KEYS.map(([k, l]) => `<kbd>${k}</kbd><span>${l}</span>`).join("")}</div>`;
+      g.innerHTML = `<h3>Raccourcis</h3><div class="shortcuts"></div><button type="button" class="btn wide" data-open-settings><i class="ph ph-keyboard"></i>Modifier les raccourcis</button>`;
+      g.querySelector("[data-open-settings]").addEventListener("click", () => openSettings());
       pane.appendChild(g);
     }
     panel.appendChild(pane);
@@ -1316,7 +1417,7 @@ function syncPanel() {
   $("png-size").textContent = `${formatSize(S.format).join(" × ")}, ${FORMATS[S.format][0].toLowerCase()}`;
   $("pause").querySelector("i").className = paused ? "ph-fill ph-play" : "ph-fill ph-pause";
   $("pause").setAttribute("aria-label", paused ? "Lecture" : "Pause");
-  $("pause").title = paused ? "Lecture (Espace)" : "Pause (Espace)";
+  $("pause").title = (paused ? "Lecture" : "Pause") + hintOf("pause");
   $("live").classList.toggle("off", paused);
 }
 
@@ -1324,6 +1425,7 @@ let rebuildT = 0;
 function set(key, value, opts) {
   S[key] = value;
   S.preset = "";
+  if (timeline && timeline.isAnimated(key)) { timeline.setKey(key, timeline.now(), value); timeline.render(); }
   changed(opts);
 }
 
@@ -1543,16 +1645,151 @@ function togglePanel() {
   requestAnimationFrame(() => { resize(); primeBuffer(buf, W, H, t); });
 }
 
+/* ---------- Raccourcis configurables ---------- */
+const ACTIONS = [
+  { id: "pause", label: "Lecture et pause", def: "Space", run: () => togglePause() },
+  { id: "random", label: "Combinaison aléatoire", def: "r", run: () => randomize() },
+  { id: "timeline", label: "Afficher la timeline", def: "t", run: () => toggleTimeline() },
+  { id: "nodes", label: "Éditeur de nœuds", def: "n", run: () => toggleNodes() },
+  { id: "panel", label: "Masquer les réglages", def: "h", run: () => togglePanel() },
+  { id: "start", label: "Revenir au début de la timeline", def: "Home", run: () => timeline.seek(0) },
+  { id: "prevKey", label: "Image clé précédente", def: "j", run: () => timeline.jump(-1) },
+  { id: "nextKey", label: "Image clé suivante", def: "l", run: () => timeline.jump(1) },
+  { id: "deleteKey", label: "Supprimer l'image clé sélectionnée", def: "Delete", run: () => timeline.deleteSelected() },
+  { id: "exportPng", label: "Exporter en PNG", def: "e", run: () => exportPNG() },
+  { id: "settings", label: "Ouvrir les paramètres", def: ",", run: () => openSettings() }
+];
+const PREFS_KEY = "loop-prefs";
+let prefs = { binds: {}, snap: true, timeline: true, gpu: true };
+try { prefs = { ...prefs, ...JSON.parse(localStorage.getItem(PREFS_KEY)) }; } catch (e) {}
+const savePrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) {} };
+const bindOf = id => id in prefs.binds ? prefs.binds[id] : ACTIONS.find(a => a.id === id).def;
+
+// « Maj+K », « Ctrl+Alt+Home »… La touche suit la disposition du clavier (AZERTY compris)
+function comboOf(e) {
+  let k = e.key;
+  if (k === " ") k = "Space";
+  else if (k.length === 1) k = k.toLowerCase();
+  if (["Shift", "Control", "Alt", "Meta"].includes(k)) return null;
+  const mods = (e.ctrlKey ? "Ctrl+" : "") + (e.altKey ? "Alt+" : "") + (e.metaKey ? "Cmd+" : "");
+  const shift = e.shiftKey && (k.length > 1 || /^[a-z]$/.test(k)) ? "Shift+" : "";
+  return mods + shift + k;
+}
+const KEY_NAMES = { Space: "Espace", Home: "Début", End: "Fin", Delete: "Suppr", Backspace: "Retour arrière", Enter: "Entrée", ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", PageUp: "Page préc.", PageDown: "Page suiv.", Shift: "Maj", Ctrl: "Ctrl", Alt: "Alt", Cmd: "⌘" };
+function keyLabel(combo) {
+  if (!combo) return "Aucun";
+  return combo.split("+").map((p, i, a) => i < a.length - 1 ? (p === "Shift" ? "Maj" : KEY_NAMES[p] || p) : KEY_NAMES[p] || (p.length === 1 ? p.toUpperCase() : p)).join(" ");
+}
+const hintOf = id => { const b = bindOf(id); return b ? ` (${keyLabel(b)})` : ""; };
+
+function refreshHints() {
+  $("random").title = "Combinaison aléatoire" + hintOf("random");
+  $("toggle-nodes").title = "Éditeur de nœuds" + hintOf("nodes");
+  $("toggle-timeline").title = "Timeline et images clés" + hintOf("timeline");
+  $("open-settings").title = "Paramètres" + hintOf("settings");
+  $("toggle-panel").title = "Masquer les réglages" + hintOf("panel");
+  $("show-panel").title = "Afficher les réglages" + hintOf("panel");
+  $("pause").title = (paused ? "Lecture" : "Pause") + hintOf("pause");
+  const list = document.querySelector(".shortcuts");
+  if (list) list.innerHTML = ACTIONS.filter(a => bindOf(a.id)).slice(0, 7).map(a => `<kbd>${keyLabel(bindOf(a.id))}</kbd><span>${a.label}</span>`).join("") +
+    `<kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ V" : "Ctrl V"}</kbd><span>Coller une image de fond</span>`;
+}
+
+let capturing = null;   // action en attente d'une nouvelle touche
 addEventListener("keydown", e => {
-  if (e.target.closest("input, select, textarea") && e.target.type !== "range") return;
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (capturing) return;
+  if (e.target.closest("input, select, textarea") && e.target.type !== "range" && e.target.type !== "checkbox") return;
   if (e.code === "Escape" && drawing) { stopDrawing(true); return; }
-  if (e.target.closest(".menu")) return;
-  if (e.code === "Space") { e.preventDefault(); togglePause(); }
-  else if (e.key === "h" || e.key === "H") togglePanel();
-  else if (e.key === "r" || e.key === "R") randomize();
-  else if (e.key === "n" || e.key === "N") toggleNodes();
+  if (e.target.closest(".menu") || $("settings").open) return;
+  const combo = comboOf(e);
+  if (!combo) return;
+  // Retour arrière supprime aussi la clé sélectionnée, comme Suppr
+  if (combo === "Backspace" && timeline.selected && bindOf("deleteKey") === "Delete") { e.preventDefault(); e.stopImmediatePropagation(); timeline.deleteSelected(); return; }
+  const act = ACTIONS.find(a => bindOf(a.id) === combo);
+  if (!act) return;
+  if (act.id === "deleteKey" && !timeline.selected) return;   // laisse la touche aux nœuds
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  act.run();
 });
+
+/* ---------- Paramètres ---------- */
+function renderBinds() {
+  $("binds").innerHTML = ACTIONS.map(a => {
+    const b = bindOf(a.id), wait = capturing === a.id;
+    return `<div class="bind"><span>${a.label}</span><button type="button" class="keycap${b ? "" : " empty"}${wait ? " waiting" : ""}" data-bind="${a.id}" aria-label="Raccourci pour ${a.label} : ${keyLabel(b)}">${wait ? "Appuie sur une touche" : keyLabel(b)}</button></div>`;
+  }).join("");
+  $("pref-snap").checked = prefs.snap;
+  $("pref-tl").checked = prefs.timeline;
+  $("pref-gpu").checked = prefs.gpu;
+  $("gpu-info").textContent = gpu ? `Carte utilisée : ${gpu.renderer}${gpu.float32 ? "" : " (tampon en demi-précision)"}` : `Rendu par le processeur : ${gpuError || "accélération coupée"}`;
+}
+function openSettings() {
+  capturing = null;
+  renderBinds();
+  $("settings").showModal();
+}
+$("open-settings").addEventListener("click", openSettings);
+$("settings-close").addEventListener("click", () => $("settings").close());
+$("settings-done").addEventListener("click", () => $("settings").close());
+$("settings").addEventListener("close", () => { capturing = null; });
+$("settings").addEventListener("click", e => { if (e.target === $("settings")) $("settings").close(); });
+$("binds").addEventListener("click", e => {
+  const b = e.target.closest("[data-bind]");
+  if (!b) return;
+  capturing = capturing === b.dataset.bind ? null : b.dataset.bind;
+  renderBinds();
+  if (capturing) $("binds").querySelector(`[data-bind="${capturing}"]`).focus();
+});
+// Capture de la nouvelle touche (avant tout le reste, et sans fermer la fenêtre sur Échap)
+addEventListener("keydown", e => {
+  if (!capturing) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (e.key === "Escape") { capturing = null; renderBinds(); return; }
+  if (e.key === "Tab") return;
+  const id = capturing;
+  if (e.key === "Backspace" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    prefs.binds[id] = "";
+  } else {
+    const combo = comboOf(e);
+    if (!combo) return;
+    const other = ACTIONS.find(a => a.id !== id && bindOf(a.id) === combo);
+    if (other) { prefs.binds[other.id] = ""; toast(`« ${other.label} » n'a plus de raccourci`); }
+    prefs.binds[id] = combo;
+  }
+  capturing = null;
+  savePrefs();
+  renderBinds();
+  refreshHints();
+  $("binds").querySelector(`[data-bind="${id}"]`).focus();
+}, true);
+$("binds-reset").addEventListener("click", () => {
+  prefs.binds = {};
+  savePrefs(); renderBinds(); refreshHints();
+  toast("Raccourcis par défaut");
+});
+$("pref-snap").addEventListener("change", e => { prefs.snap = e.target.checked; savePrefs(); });
+$("pref-tl").addEventListener("change", e => { prefs.timeline = e.target.checked; savePrefs(); });
+$("pref-gpu").addEventListener("change", e => {
+  prefs.gpu = e.target.checked;
+  savePrefs();
+  if (prefs.gpu) startGpu();
+  primeBuffer(buf, W, H, t);
+  renderBinds();
+});
+
+/* ---------- Timeline ---------- */
+function toggleTimeline(force) {
+  const el = $("timeline");
+  const open = force ?? el.hidden;
+  if (open === !el.hidden) return;
+  el.hidden = !open;
+  $("toggle-timeline").setAttribute("aria-pressed", open);
+  if (open) timeline.render();
+  requestAnimationFrame(() => { resize(); primeBuffer(buf, W, H, t); });
+}
+$("toggle-timeline").addEventListener("click", () => toggleTimeline());
 
 let resizeT = 0;
 addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { resize(); primeBuffer(buf, W, H, t); }, 120); });
@@ -1584,6 +1821,7 @@ function renderThumbs() {
   ({ S, P, filamentOffsets, orbitTilt, lutRGB, DMAX } = keep);
   curve.set(keep.curve); normals.set(keep.normals); lut.set(keep.lut);
   atlasKey = ""; glyphKey = "";
+  curveVersion++; lutVersion++;
   BG.off = false;
 }
 
@@ -1606,6 +1844,26 @@ editor = createNodeEditor({
   canvas: () => canvas,
   formatLabel: () => `${FORMATS[S.format][0]}, ${formatSize(S.format).join(" × ")}`
 });
+if (prefs.gpu) startGpu();
+timeline = createTimeline({
+  root: $("timeline"),
+  S: () => S,
+  time: () => t,
+  setTime: v => { t = v; },
+  afterSeek: () => { if (paused) primeBuffer(buf, W, H, t); syncAnimated(); },
+  changed: () => { for (const k in lastApplied) delete lastApplied[k]; S.preset = ""; saveSettings(); if (paused) primeBuffer(buf, W, H, t); syncAnimated(); syncPanel(); },
+  control: key => controlOf(key),
+  label: key => controlOf(key)?.label || key,
+  order: () => CONTROLS.flatMap(sec => sec.items.map(c => c.key)).filter(Boolean),
+  snap: () => prefs.snap,
+  // Hauteur dispo pour la timeline : la colonne moins 180 px d'aperçu et le tiroir des nœuds
+  maxHeight: () => document.querySelector(".stage-wrap").offsetHeight - 180 - ($("nodes").hidden ? 0 : $("nodes").offsetHeight),
+  // Pendant le glissé, on ne fait que recadrer l'aperçu ; le tampon est recalculé au relâchement
+  resized: done => { resize(); if (done || paused) primeBuffer(buf, W, H, t); },
+  toast
+});
+refreshHints();
+if (prefs.timeline || (S.keys && Object.keys(S.keys).length)) toggleTimeline(true);
 resize();
 primeBuffer(buf, W, H, t);
 requestAnimationFrame(frame);
@@ -1621,4 +1879,11 @@ if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
 }
 
 // Pour les tests automatisés
-window.__wall = { get editor() { return editor; }, toggleNodes, get S() { return S; }, set, changed, exportSVG, exportPNG, randomize, primeBuffer, get W() { return W; }, get H() { return H; }, get ms() { return msAvg; }, startDrawing, stopDrawing, get t() { return t; }, setBackground, clearBackground, showTab };
+window.__wall = { get editor() { return editor; }, toggleNodes, get S() { return S; }, set, changed, exportSVG, exportPNG, randomize, primeBuffer, get W() { return W; }, get H() { return H; }, get ms() { return msAvg; }, startDrawing, stopDrawing, get t() { return t; }, setBackground, clearBackground, showTab, get timeline() { return timeline; }, toggleTimeline, get paused() { return paused; }, togglePause, get gpu() { return useGpu() ? gpu : null; },
+  // Mesure : n images rendues d'affilée, en attendant la fin du travail de la carte graphique
+  bench(n = 30) {
+    const t0 = performance.now();
+    for (let i = 0; i < n; i++) { t += 1 / 60; withOverrides(t, () => renderFrame()); }
+    ctx.getImageData(0, 0, 1, 1);
+    return (performance.now() - t0) / n;
+  } };

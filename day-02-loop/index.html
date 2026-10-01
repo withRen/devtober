@@ -104,7 +104,7 @@
     body.panel-hidden .panel { display: none; }
     .show-hidden { display: none !important; }
     body.panel-hidden .show-hidden { display: inline-flex !important; }
-    .stage-wrap { --ne-h: 42vh; display: grid; grid-template-rows: minmax(180px, 1fr) auto; min-width: 0; min-height: 0; }
+    .stage-wrap { --ne-h: 42vh; display: grid; grid-template-rows: minmax(180px, 1fr) auto auto; min-width: 0; min-height: 0; }
 
     #stage {
       position: relative; display: grid; place-items: center; min-height: 0; overflow: hidden; padding: 24px 24px 72px;
@@ -352,6 +352,109 @@
     .ne-menu button { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font-size: 13px; cursor: pointer; text-align: left; }
     .ne-menu button:hover { background: #2e2e34; }
 
+
+    /* ---------- Timeline ---------- */
+    .timeline { --label-w: 168px; position: relative; display: grid; border-top: 1px solid var(--line); background: var(--panel); }
+    /* Poignée du bord haut : glisser vers le haut agrandit les pistes, double-clic pour revenir à la taille par défaut */
+    .tl-resize { position: absolute; top: -5px; left: 0; right: 0; height: 10px; z-index: 4; cursor: ns-resize; touch-action: none; }
+    .tl-resize::after { content: ""; position: absolute; left: 50%; top: 3px; width: 36px; height: 4px; margin-left: -18px; border-radius: 999px; background: var(--line-strong); opacity: 0; transition: opacity .2s var(--ease), background .2s var(--ease); }
+    .timeline:hover .tl-resize::after { opacity: 1; }
+    .tl-resize:hover::after, .timeline.resizing .tl-resize::after { opacity: 1; background: var(--muted); }
+    .timeline.sized .tl-body { height: var(--tl-h); max-height: none; }
+    .tl-bar { display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 7px 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+    .tl-bar .btn { height: 30px; }
+    .tl-bar .btn.icon { width: 30px; }
+    .tl-title { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; font-weight: 600; white-space: nowrap; }
+    .tl-title i { font-size: 16px; color: var(--muted); }
+    .tl-time { margin: 0 8px 0 6px; font-size: 12px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .tl-time b { color: var(--text); font-weight: 500; }
+    .tl-dur { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+    .tl-dur input, .tl-sel input[type=number] {
+      width: 64px; height: 30px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 8px;
+      background: var(--raise); color: var(--text); font-size: 12px;
+    }
+    .tl-sel { display: inline-flex; align-items: center; gap: 8px; margin-left: 10px; padding-left: 14px; border-left: 1px solid var(--line-strong); white-space: nowrap; }
+    .tl-sel-name { font-size: 12.5px; font-weight: 500; }
+    .tl-sel-t { font-size: 12px; color: var(--faint); }
+    .tl-sel input[type=color] { width: 40px; height: 28px; border: 1px solid var(--line-strong); border-radius: 8px; background: none; padding: 2px; }
+    .seg { display: inline-flex; padding: 2px; border: 1px solid var(--line-strong); border-radius: 999px; }
+    .seg button { height: 24px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
+    .seg button:hover { color: var(--text); }
+    .seg button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+    .tl-hint { font-size: 12px; color: var(--faint); white-space: nowrap; }
+    .timeline.has-sel .tl-hint { display: none; }
+
+    .tl-body {
+      position: relative; max-height: 184px; overflow-y: auto; overscroll-behavior: contain;
+      /* Le séparateur de la colonne des libellés descend jusqu'en bas, même sans pistes */
+      background: linear-gradient(to right, transparent calc(var(--label-w) - 1px), var(--line) calc(var(--label-w) - 1px), var(--line) var(--label-w), transparent var(--label-w));
+    }
+    .tl-grid { display: grid; grid-template-columns: var(--label-w) 1fr; }
+    .tl-corner, .tl-ruler { position: sticky; top: 0; z-index: 2; height: 26px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    .tl-corner { border-right: 1px solid var(--line); }
+    .tl-ruler { cursor: ew-resize; }
+    .tl-in { position: relative; height: 100%; margin: 0 14px; }
+    .tick { position: absolute; top: 0; bottom: 0; padding: 6px 0 0 5px; border-left: 1px solid var(--line-strong); font: 400 10.5px "Geist Mono", monospace; color: var(--faint); white-space: nowrap; pointer-events: none; }
+    .tick.minor { top: 16px; }
+    .tl-label { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 6px 0 14px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+    .tl-label span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tl-x { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--faint); cursor: pointer; opacity: 0; transition: opacity .2s var(--ease), background .2s var(--ease); }
+    .tl-label:hover .tl-x, .tl-x:focus-visible { opacity: 1; }
+    .tl-x:hover { background: var(--hover); color: var(--text); }
+    .tl-lane { height: 30px; border-bottom: 1px solid var(--line); cursor: ew-resize; }
+    .tl-lane:hover { background: #ffffff05; }
+    .kd {
+      position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; padding: 0;
+      border: 1.5px solid var(--text); background: var(--panel); cursor: grab; transform: rotate(45deg);
+      transition: background .15s var(--ease), border-color .15s var(--ease);
+    }
+    .kd.ci { border-radius: 3px; }
+    .kd.sq { transform: none; border-radius: 1px; }
+    .kd:hover { background: var(--muted); }
+    .kd.sel { background: var(--accent); border-color: var(--accent); }
+    .kd:active { cursor: grabbing; }
+    .tl-over { position: absolute; top: 0; bottom: 0; left: calc(var(--label-w) + 14px); right: 14px; pointer-events: none; z-index: 3; }
+    .tl-head { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); }
+    .tl-head::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top-color: var(--accent); }
+    .tl-empty { padding: 18px 16px 20px calc(var(--label-w) + 14px); font-size: 13px; color: var(--muted); }
+    .tl-empty i { vertical-align: -2px; }
+
+    /* Losange d'image clé à côté des réglages */
+    .ctl-head .lbl { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+    .kf { display: grid; place-items: center; width: 18px; height: 18px; margin-left: -2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--line-strong); cursor: pointer; transition: color .2s var(--ease), background .2s var(--ease); }
+    .kf i { font-size: 12px; }
+    .ctl:hover .kf, .kf:focus-visible { color: var(--faint); }
+    .kf:hover { color: var(--text) !important; background: var(--hover); }
+    .kf.anim { color: var(--accent) !important; }
+    .color .lbl { display: inline-flex; align-items: center; gap: 6px; }
+
+    /* ---------- Paramètres ---------- */
+    .modal {
+      margin: auto; padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 48px);
+      border: 1px solid var(--line-strong); border-radius: 12px; background: var(--panel); color: var(--text);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / .05), 0 32px 80px -24px rgb(5 5 6 / .95);
+    }
+    .modal::backdrop { background: rgb(5 5 6 / .6); }
+    .modal[open] { animation: pop .25s var(--ease); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 16px 14px 22px; border-bottom: 1px solid var(--line); }
+    .modal-head h2 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+    .modal-body { display: grid; gap: 22px; padding: 18px 22px 22px; overflow-y: auto; max-height: calc(100dvh - 140px); }
+    .modal-body h3 { font-size: 13px; font-weight: 600; }
+    .modal-note { font-size: 12.5px; color: var(--faint); line-height: 1.5; margin-top: 4px; }
+    .binds { display: grid; margin-top: 8px; }
+    .bind { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 42px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+    .bind:last-child { border-bottom: 0; }
+    .keycap {
+      min-width: 88px; height: 30px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px;
+      background: var(--raise); color: var(--text); font: 500 12px "Geist Mono", monospace; white-space: nowrap; cursor: pointer;
+      transition: border-color .2s var(--ease), background .2s var(--ease), transform .15s var(--ease);
+    }
+    .keycap:hover { border-color: #6e6e76; }
+    .keycap:active { transform: scale(.97); }
+    .keycap.empty { color: var(--faint); }
+    .keycap.waiting { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 14%, var(--raise)); }
+    .modal-foot { display: flex; justify-content: space-between; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--line); }
+
     #toast {
       position: fixed; left: 50%; bottom: 76px; transform: translate(-50%, 10px); z-index: 30;
       padding: 10px 16px; border-radius: 999px; background: var(--text); color: var(--bg);
@@ -376,6 +479,13 @@
       #controls { overflow: visible; }
       .title span, .hide-sm { display: none !important; }
       .hide-xs { display: none !important; }
+      .top { gap: 8px; padding: 0 10px; }
+      .actions { gap: 4px; }
+      .actions .btn { padding: 0 10px; }
+      .actions .btn:has(> span.hide-sm) { width: 34px; padding: 0; }
+      .actions .sep { display: none; }
+      .timeline { --label-w: 104px; }
+      .tl-hint, .tl-title span { display: none; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
   </style>
@@ -387,11 +497,13 @@
     <span class="spacer"></span>
     <div class="actions">
       <button class="btn" id="random" type="button" title="Combinaison aléatoire (R)" aria-label="Combinaison aléatoire"><i class="ph ph-shuffle"></i><span class="hide-sm">Aléatoire</span></button>
+      <button class="btn" id="toggle-timeline" type="button" aria-pressed="false" aria-label="Timeline"><i class="ph ph-film-strip"></i><span class="hide-sm">Timeline</span></button>
       <button class="btn" id="toggle-nodes" type="button" aria-pressed="false" title="Éditeur de nœuds (N)" aria-label="Éditeur de nœuds"><i class="ph ph-tree-structure"></i><span class="hide-sm">Nœuds</span></button>
+      <button class="btn icon" id="open-settings" type="button" title="Paramètres" aria-label="Paramètres"><i class="ph ph-gear-six"></i></button>
       <button class="btn icon hide-sm" id="share" type="button" title="Copier le lien de partage" aria-label="Copier le lien de partage"><i class="ph ph-link"></i></button>
       <span class="sep hide-sm"></span>
       <div class="menu-wrap">
-        <button class="btn primary" id="export" type="button" aria-haspopup="menu" aria-expanded="false"><i class="ph ph-download-simple"></i><span>Exporter</span></button>
+        <button class="btn primary" id="export" type="button" aria-haspopup="menu" aria-expanded="false"><i class="ph ph-download-simple"></i><span class="hide-sm">Exporter</span></button>
         <div class="menu" id="export-menu" role="menu" hidden>
           <button type="button" role="menuitem" id="export-png"><i class="ph ph-image"></i><span><b>PNG</b><small id="png-size">Image à la résolution choisie</small></span></button>
           <button type="button" role="menuitem" id="export-svg"><i class="ph ph-bezier-curve"></i><span><b>SVG</b><small>Lignes vectorielles, avec l'image de fond</small></span></button>
@@ -418,6 +530,7 @@
           <button class="btn icon show-hidden" id="show-panel" type="button" title="Afficher les réglages (H)" aria-label="Afficher les réglages"><i class="ph ph-sidebar-simple"></i></button>
         </div>
       </div>
+      <section id="timeline" class="timeline" hidden aria-label="Timeline et images clés"></section>
       <section id="nodes" class="nodes" hidden aria-label="Éditeur de nœuds"></section>
     </div>
 
@@ -436,6 +549,39 @@
       </nav>
     </aside>
   </div>
+
+  <dialog class="modal" id="settings" aria-labelledby="settings-title">
+    <div class="modal-head">
+      <h2 id="settings-title">Paramètres</h2>
+      <button class="btn icon ghost" id="settings-close" type="button" aria-label="Fermer"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <section>
+        <h3>Raccourcis clavier</h3>
+        <p class="modal-note">Clique sur un raccourci puis appuie sur la nouvelle touche, avec Maj, Alt ou Ctrl si tu veux. <kbd>Échap</kbd> annule, <kbd>Retour arrière</kbd> retire le raccourci.</p>
+        <div class="binds" id="binds"></div>
+      </section>
+      <section>
+        <h3>Rendu</h3>
+        <div class="binds">
+          <label class="toggle bind"><span>Accélération graphique (WebGL, profil haute performance)</span><input type="checkbox" id="pref-gpu"><i></i></label>
+        </div>
+        <p class="modal-note" id="gpu-info"></p>
+        <p class="modal-note">Le navigateur demande la carte dédiée. Si c'est la puce intégrée qui s'affiche, c'est le système qui choisit : sous Windows, Paramètres, Affichage, Graphiques, puis « Hautes performances » pour le navigateur.</p>
+      </section>
+      <section>
+        <h3>Timeline</h3>
+        <div class="binds">
+          <label class="toggle bind"><span>Aimanter les clés au dixième de seconde (Maj pendant le glissé pour ignorer)</span><input type="checkbox" id="pref-snap"><i></i></label>
+          <label class="toggle bind"><span>Ouvrir la timeline au démarrage</span><input type="checkbox" id="pref-tl"><i></i></label>
+        </div>
+      </section>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="binds-reset" type="button"><i class="ph ph-arrow-counter-clockwise"></i>Raccourcis par défaut</button>
+      <button class="btn primary" id="settings-done" type="button">Terminé</button>
+    </div>
+  </dialog>
 
   <input type="file" id="bg-file" accept="image/*" hidden>
   <div id="toast" role="status" aria-live="polite"></div>
