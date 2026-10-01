@@ -6,111 +6,265 @@
   <title>Devtober 2026</title>
   <meta name="description" content="1 mot par jour pendant tout octobre, 1 création en code.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0c0b10;
-      --surface: #16151c;
-      --border: #26242f;
-      --text: #ece9f2;
-      --muted: #7d7989;
-      --accent: #ff6b3d;
-      --accent-soft: rgba(255, 107, 61, .12);
+      --bg: #0e0e10;
+      --surface: #161619;
+      --surface-hover: #1b1b1f;
+      --line: #26262b;
+      --line-strong: #34343a;
+      --text: #ececee;
+      --muted: #8a8a93;
+      --faint: #55555c;
+      --accent: #e07a52;
+      --accent-dim: rgba(224, 122, 82, .14);
+      --ease: cubic-bezier(.16, 1, .3, 1);
     }
-    * { box-sizing: border-box; margin: 0; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      min-height: 100vh;
+      min-height: 100dvh;
       background: var(--bg);
       color: var(--text);
-      font-family: "Space Grotesk", system-ui, sans-serif;
-      padding: clamp(24px, 6vw, 72px) 16px;
+      font-family: "Geist", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
-    main { max-width: 1040px; margin: 0 auto; }
 
-    header { margin-bottom: 48px; }
+    /* Grain discret, fixe, sans repaint au scroll */
+    body::after {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none;
+      opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .mono { font-family: "Geist Mono", ui-monospace, monospace; }
+
+    .layout {
+      max-width: 1400px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: grid;
+      grid-template-columns: minmax(300px, 5fr) 8fr;
+      gap: clamp(40px, 6vw, 96px);
+      padding: clamp(32px, 6vw, 80px) clamp(16px, 4vw, 56px);
+    }
+
+    /* ---------- Colonne gauche ---------- */
+    .intro {
+      position: sticky;
+      top: clamp(32px, 6vw, 80px);
+      align-self: start;
+      display: grid;
+      gap: 40px;
+    }
+
     .eyebrow {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 13px;
-      color: var(--accent);
-      letter-spacing: .08em;
-      text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--muted);
     }
+    .beat {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent);
+      animation: beat 1.6s var(--ease) infinite;
+    }
+    @keyframes beat {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      15% { transform: scale(1.6); opacity: .7; }
+      30% { transform: scale(1); opacity: 1; }
+    }
+
     h1 {
-      font-size: clamp(44px, 9vw, 96px);
-      font-weight: 700;
-      letter-spacing: -.04em;
-      line-height: .95;
-      margin: 12px 0 20px;
+      font-size: clamp(40px, 5vw, 60px);
+      font-weight: 600;
+      letter-spacing: -.045em;
+      line-height: 1;
+      margin-top: 18px;
     }
-    .lead { font-size: 18px; color: var(--muted); max-width: 520px; line-height: 1.5; }
+    h1 span { color: var(--faint); }
+
+    .lead {
+      margin-top: 18px;
+      max-width: 38ch;
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
     .lead strong { color: var(--text); font-weight: 500; }
 
-    .stats {
-      display: flex; gap: 24px; flex-wrap: wrap;
-      margin-top: 28px;
-      font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--muted);
+    /* Mot du jour */
+    .today-card {
+      border-top: 1px solid var(--line);
+      padding-top: 24px;
     }
-    .stats b { color: var(--text); font-weight: 500; }
+    .label { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+    .today-word {
+      display: block;
+      font-size: clamp(32px, 3.4vw, 44px);
+      font-weight: 500;
+      letter-spacing: -.035em;
+      margin-top: 8px;
+    }
+    .today-meta { margin-top: 6px; font-size: 13px; color: var(--faint); }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 10px;
+    /* Progression : 31 segments */
+    .progress-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; color: var(--muted);
     }
-    .day {
-      position: relative;
-      display: flex; flex-direction: column; justify-content: space-between;
-      aspect-ratio: 1;
-      padding: 16px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: var(--surface);
+    .progress-head b { color: var(--text); font-weight: 500; }
+    .bar {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(31, 1fr);
+      gap: 3px;
+    }
+    .bar i {
+      height: 18px; border-radius: 2px;
+      background: var(--line);
+      transform-origin: bottom;
+      animation: rise .8s var(--ease) both;
+      animation-delay: calc(var(--i) * 18ms + 200ms);
+    }
+    .bar i.done { background: var(--accent); }
+    .bar i.now { background: var(--line-strong); box-shadow: inset 0 0 0 1px var(--accent); }
+    @keyframes rise { from { transform: scaleY(0); } }
+
+    .links {
+      display: flex; flex-wrap: wrap; gap: 8px 20px;
+      font-size: 14px;
+    }
+    .links a {
       color: var(--muted);
       text-decoration: none;
-      transition: transform .15s, border-color .15s, background .15s;
+      border-bottom: 1px solid var(--line-strong);
+      padding-bottom: 2px;
+      transition: color .3s var(--ease), border-color .3s var(--ease);
     }
-    .num { font-family: "JetBrains Mono", monospace; font-size: 13px; }
-    .word { font-size: 22px; font-weight: 500; letter-spacing: -.02em; }
-    .tag {
-      position: absolute; top: 14px; right: 14px;
-      font-family: "JetBrains Mono", monospace; font-size: 11px;
-      padding: 3px 8px; border-radius: 99px;
+    .links a:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ---------- Grille des jours ---------- */
+    .days {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 8px;
+      align-content: start;
     }
 
-    .day.done { color: var(--text); border-color: #3a3746; }
-    .day.done .tag { background: var(--accent-soft); color: var(--accent); }
-    .day.done:hover { transform: translateY(-3px); border-color: var(--accent); background: #1c1a23; }
-
-    .day.today { border-color: var(--accent); color: var(--text); }
-    .day.today .tag { background: var(--accent); color: var(--bg); }
-
-    .day.future { opacity: .45; }
-
-    footer {
-      margin-top: 56px; padding-top: 24px;
-      border-top: 1px solid var(--border);
-      font-size: 14px; color: var(--muted);
-      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    .week-label {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 11px; color: var(--faint);
+      letter-spacing: .08em; text-transform: uppercase;
+      margin: 28px 0 4px;
     }
-    footer a { color: var(--text); }
+    .week-label:first-child { margin-top: 0; }
+    .week-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    .day {
+      --x: 50%; --y: 50%;
+      position: relative;
+      display: flex; flex-direction: column; justify-content: space-between;
+      min-height: 124px;
+      padding: 14px 16px 16px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--faint);
+      text-decoration: none;
+      overflow: hidden;
+      opacity: 0;
+      animation: reveal .7s var(--ease) both;
+      animation-delay: calc(var(--i) * 22ms + 120ms);
+      transition: transform .35s var(--ease), border-color .35s var(--ease), background .35s var(--ease);
+    }
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .day-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+    .word { font-size: 21px; font-weight: 500; letter-spacing: -.025em; }
+    .status { font-size: 11px; }
+
+    /* Publié */
+    .day.done { color: var(--text); background: var(--surface); }
+    .day.done .status { color: var(--accent); }
+    .day.done::before {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(220px circle at var(--x) var(--y), var(--accent-dim), transparent 60%);
+      opacity: 0;
+      transition: opacity .35s var(--ease);
+      pointer-events: none;
+    }
+    .day.done:hover { border-color: var(--line-strong); background: var(--surface-hover); transform: translateY(-2px); }
+    .day.done:hover::before { opacity: 1; }
+    .day.done:active { transform: scale(.98); }
+    .day.done .arrow { display: inline-block; transition: transform .35s var(--ease); }
+    .day.done:hover .arrow { transform: translateX(3px); }
+
+    /* Aujourd'hui (pas encore publié) */
+    .day.today { color: var(--text); border-color: var(--accent); }
+    .day.today .status { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
+    .day.today .status::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+      animation: beat 1.6s var(--ease) infinite;
+    }
+
+    /* Passé, non publié */
+    .day.missed { color: var(--muted); }
+
+    /* À venir */
+    .day.future { background: transparent; border-style: dashed; }
+
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    /* ---------- Mobile ---------- */
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; gap: 48px; padding: 32px 16px 48px; }
+      .intro { position: static; gap: 32px; }
+      .days { grid-template-columns: repeat(2, 1fr); }
+      .day { min-height: 104px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .day { opacity: 1; }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <header>
-      <p class="eyebrow">#devtober · octobre 2026</p>
-      <h1>Devtober</h1>
-      <p class="lead"><strong>1 mot par jour, 1 création en code.</strong> Jeu, animation, art génératif, outil… la forme est libre.</p>
-      <div class="stats" id="stats"></div>
-    </header>
+  <div class="layout">
+    <aside class="intro">
+      <div>
+        <p class="eyebrow mono"><span class="beat"></span>#devtober · octobre 2026</p>
+        <h1>Devtober<span>/26</span></h1>
+        <p class="lead"><strong>1 mot par jour, 1 création en code.</strong> Jeu, animation, art génératif, outil : la forme est libre, le mot donne la direction.</p>
+      </div>
 
-    <section class="grid" id="grid"></section>
+      <div class="today-card" id="today"></div>
 
-    <footer>
-      <span>Les autres participants : <a href="https://github.com/topics/devtober">github.com/topics/devtober</a></span>
-      <a href="https://github.com/withRen/devtober">Code source</a>
-    </footer>
-  </main>
+      <div>
+        <div class="progress-head mono"><span>Progression</span><span id="count"></span></div>
+        <div class="bar" id="bar" aria-hidden="true"></div>
+      </div>
+
+      <nav class="links">
+        <a href="https://github.com/withRen/devtober">Code source</a>
+        <a href="https://github.com/topics/devtober">Les autres participants</a>
+      </nav>
+    </aside>
+
+    <main class="days" id="days" aria-label="Les 31 jours"></main>
+  </div>
 
   <script>
     const WORDS = [
@@ -124,25 +278,73 @@
     const DONE = [1];
 
     const now = new Date();
-    const today = now.getFullYear() === 2026 && now.getMonth() === 9 ? now.getDate() : 0;
-    const slug = (i, w) => `day-${String(i).padStart(2, "0")}-${w.toLowerCase()}`;
+    const inOctober = now.getFullYear() === 2026 && now.getMonth() === 9;
+    const today = inOctober ? now.getDate() : (now > new Date(2026, 9, 31) ? 32 : 0);
+    const pad = n => String(n).padStart(2, "0");
+    const slug = i => `day-${pad(i)}-${WORDS[i - 1].toLowerCase()}`;
+    const weekday = i => new Date(2026, 9, i).toLocaleDateString("fr-FR", { weekday: "long" });
 
-    document.getElementById("grid").innerHTML = WORDS.map((w, idx) => {
+    function state(i) {
+      if (DONE.includes(i)) return "done";
+      if (i === today) return "today";
+      return i < today ? "missed" : "future";
+    }
+
+    // Grille, groupée par semaine
+    const days = document.getElementById("days");
+    let html = "";
+    WORDS.forEach((w, idx) => {
       const i = idx + 1;
-      const num = `<span class="num">${String(i).padStart(2, "0")}</span>`;
-      const word = `<span class="word">${w}</span>`;
-      if (DONE.includes(i)) {
-        return `<a class="day done" href="${slug(i, w)}/">${num}<span class="tag">voir →</span>${word}</a>`;
+      if (idx % 7 === 0) {
+        const end = Math.min(i + 6, 31);
+        html += `<div class="week-label mono">Semaine ${idx / 7 + 1} · ${pad(i)}–${pad(end)}</div>`;
       }
-      if (i === today) {
-        return `<div class="day today">${num}<span class="tag">aujourd'hui</span>${word}</div>`;
-      }
-      return `<div class="day ${i > today ? "future" : ""}">${num}${word}</div>`;
-    }).join("");
+      const s = state(i);
+      const status = {
+        done: `Voir <span class="arrow">&rarr;</span>`,
+        today: "Aujourd'hui",
+        missed: "",
+        future: ""
+      }[s];
+      const inner = `
+        <span class="day-top mono"><span>${pad(i)}</span><span class="status">${status}</span></span>
+        <span class="word">${w}</span>`;
+      html += s === "done"
+        ? `<a class="day done" href="${slug(i)}/" style="--i:${idx}">${inner}</a>`
+        : `<div class="day ${s}" style="--i:${idx}">${inner}</div>`;
+    });
+    days.innerHTML = html;
 
-    document.getElementById("stats").innerHTML =
-      `<span><b>${DONE.length}</b> / 31 publiés</span>` +
-      (today ? `<span>Jour <b>${today}</b> : ${WORDS[today - 1]}</span>` : "");
+    // Halo qui suit le curseur sur les jours publiés
+    days.addEventListener("pointermove", e => {
+      const card = e.target.closest(".day.done");
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--x", `${e.clientX - r.left}px`);
+      card.style.setProperty("--y", `${e.clientY - r.top}px`);
+    });
+
+    // Mot du jour
+    const t = document.getElementById("today");
+    if (today >= 1 && today <= 31) {
+      const done = DONE.includes(today);
+      t.innerHTML = `
+        <p class="label mono">Mot du jour · ${weekday(today)} ${today} octobre</p>
+        <span class="today-word">${WORDS[today - 1]}</span>
+        <p class="today-meta mono">${done ? `<a href="${slug(today)}/" style="color:var(--accent);text-decoration:none">Création publiée &rarr;</a>` : "En cours de création"}</p>`;
+    } else if (today === 0) {
+      t.innerHTML = `<p class="label mono">Bientôt</p><span class="today-word">1er octobre</span><p class="today-meta mono">Premier mot : ${WORDS[0]}</p>`;
+    } else {
+      t.innerHTML = `<p class="label mono">Terminé</p><span class="today-word">${DONE.length} créations</span><p class="today-meta mono">Rendez-vous l'an prochain</p>`;
+    }
+
+    // Barre de progression
+    document.getElementById("bar").innerHTML = WORDS.map((_, idx) => {
+      const i = idx + 1;
+      const cls = DONE.includes(i) ? "done" : i === today ? "now" : "";
+      return `<i class="${cls}" style="--i:${idx}"></i>`;
+    }).join("");
+    document.getElementById("count").innerHTML = `<b>${DONE.length}</b> / 31`;
   </script>
 </body>
 </html>
