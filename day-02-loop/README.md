@@ -6,11 +6,13 @@ Un générateur de fonds d'écran : des milliers de particules qui tournent en b
 
 ## Ce qu'on peut faire
 
-- **8 formes** : Galaxie (bras spiraux), Cercle, Infini, Fleur, Lissajous, Cœur, Étoile, et **Dessin libre** : tu traces une boucle à la souris ou au doigt, les particules la suivent.
+- **8 préréglages** avec miniatures : Galaxie, Orbite (sphère granuleuse, anneaux en orbite, aberration chromatique), Sphère de chiffres, Fleur néon, Code, Infini, Atome, Papier.
+- **9 formes** : Galaxie (bras spiraux), Sphère (en 3D, avec perspective), Cercle, Infini, Fleur, Lissajous, Cœur, Étoile, et **Dessin libre** : tu traces une boucle à la souris ou au doigt, les particules la suivent.
 - **Boucles** : jusqu'à 16 boucles imbriquées, décalées et tournant dans des sens alternés, de 5 000 à 200 000 particules, regroupées en filaments, plus de la poussière d'étoiles.
 - **Mouvement** : vitesse le long de la boucle, rotation, turbulence, traînées.
-- **3 rendus** : **Particules**, **ASCII** (5 jeux de caractères) et **Vecteurs** (lignes tracées).
-- **Halo** réglable en intensité et en taille.
+- **4 rendus** : **Particules**, **ASCII** (5 jeux de caractères), **Vecteurs** (lignes tracées) et **Glyphes** (un caractère par particule, plus petit et plus sombre quand il est loin).
+- **Anneaux en orbite** : jusqu'à 5 ellipses inclinées autour de la forme.
+- **Effets** : halo, aberration chromatique, grain.
 - **7 palettes** et trois couleurs libres (fond, moyenne, vive). Les fonds clairs fonctionnent aussi.
 - **Cadrage** : zoom, position, angle.
 - **Export** : PNG à la résolution choisie (ton écran, 4K, 1440p, 1080p, ultra large, iPhone, Android, carré) et **SVG** vectoriel avec halo.
@@ -25,6 +27,8 @@ Un générateur de fonds d'écran : des milliers de particules qui tournent en b
 - **Turbulence** : un bruit de valeur sur une grille de 256 × 256 qui se répète, deux octaves.
 - **ASCII** : la densité moyenne de chaque cellule choisit un caractère dans un atlas pré-rendu, découpé en 24 niveaux de couleur.
 - **Halo** : l'image réduite deux fois (donc floutée), puis ajoutée par-dessus.
+- **Aberration chromatique** : l'image est séparée en trois calques rouge, vert et bleu par composition de canvas, le rouge légèrement agrandi, le bleu légèrement réduit, puis ils sont additionnés. Le grain est un motif de bruit en mode « overlay ». Les deux restent sur la carte graphique.
+- **Sphère et orbites** : chaque angle vaut « angle propre + rotation commune ». Le cosinus et le sinus de l'angle propre sont précalculés, puis tournés par une multiplication à chaque image : aucune fonction trigonométrique par particule. Le préréglage Orbite (171 000 particules) est passé de 56 à 21 ms par image.
 - Aucune librairie.
 
 Performances mesurées sur un M1 Pro, aperçu de 1,6 mégapixel : environ 10 ms par image à 70 000 particules, 3 ms en vecteurs. L'export PNG en 4K prend moins d'une seconde.
