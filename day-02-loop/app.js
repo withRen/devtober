@@ -21,6 +21,7 @@ const DEFAULTS = {
   zoom: 1, cx: 0, cy: 0, angle: 0,
   tilt: 0.45, orbits: 0, chroma: 0, grain: 0,
   glyphSize: 20, glyphs: "0123456789", flicker: 0.25,
+  bgFit: "cover", bgVeil: 0.35, bgBlur: 0,
   seed: 7, format: "ecran", freehand: null, preset: "galaxie", graph: null
 };
 const SECTION_TITLES = ["Forme", "Boucles", "Mouvement", "Rendu", "Effets", "Couleurs", "Cadrage"];
@@ -383,7 +384,7 @@ let lut = new Uint32Array(LUT_N), lutRGB = [];
 let DMAX = 4;
 
 function buildLut() {
-  const bg = hex(S.bg), c1 = hex(S.c1), c2 = hex(S.c2);
+  const bg = hex(layerBg()), c1 = hex(S.c1), c2 = hex(S.c2);
   DMAX = 5 / S.exposure;
   lutRGB = [];
   for (let i = 0; i < LUT_N; i++) {
@@ -452,7 +453,7 @@ function toneMap(b, out32) {
 // ASCII : un caractère par cellule, choisi selon la densité moyenne
 let atlas = null, atlasKey = "";
 function buildAtlas(cell) {
-  const key = `${cell}|${S.charset}|${S.bg}|${S.c1}|${S.c2}|${S.exposure}`;
+  const key = `${cell}|${S.charset}|${layerBg()}|${S.c1}|${S.c2}|${S.exposure}`;
   if (key === atlasKey) return;
   atlasKey = key;
   const chars = [...S.charset];
@@ -473,7 +474,7 @@ function buildAtlas(cell) {
 
 function drawAscii(g, b, w, h, cell) {
   buildAtlas(cell);
-  g.fillStyle = S.bg;
+  g.fillStyle = layerBg();
   g.fillRect(0, 0, w, h);
   const cols = Math.floor(w / cell), rows = Math.floor(h / cell);
   const k = 1 / (cell * cell);
@@ -582,7 +583,7 @@ function glyphList(time, w, h) {
 }
 
 function drawGlyphs(g, w, h, time) {
-  g.fillStyle = S.bg;
+  g.fillStyle = layerBg();
   g.fillRect(0, 0, w, h);
   if (S.orbits) strokePaths(g, orbitPaths(time), w, h, S.c1, 0.7, Math.max(1, Math.min(w, h) / 900));
   buildGlyphAtlas();
@@ -653,7 +654,7 @@ function postFx(g, w, h) {
 }
 
 function drawVectors(g, w, h, time) {
-  g.fillStyle = S.bg;
+  g.fillStyle = layerBg();
   g.fillRect(0, 0, w, h);
   const { unit, ox, oy, ca, sa } = transform(w, h);
   const light = isLight(S.bg);
@@ -705,12 +706,140 @@ function applyHalo(g, src, w, h) {
   g.restore();
 }
 
+/* ---------- Image de fond ---------- */
+// L'image n'est pas dans les réglages (trop lourde pour le lien de partage) : elle est
+// gardée dans IndexedDB. Les particules sont rendues sur un fond noir (ou blanc si la
+// palette est claire), puis posées sur l'image en mode « écran » (ou « produit »).
+// La couleur de fond sert alors de voile sur l'image.
+const BG = { img: null, blob: null, name: "", w: 0, h: 0, url: "", off: false, loading: false, error: "" };
+const hasImage = () => !!BG.img && !BG.off;
+const layerBg = () => hasImage() ? (isLight(S.bg) ? "#ffffff" : "#000000") : S.bg;
+
+function idb(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open("loop-wallpaper", 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("files");
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const tx = open.result.transaction("files", mode);
+      const req = fn(tx.objectStore("files"));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+
+async function setBackground(blob, name, persist = true) {
+  BG.loading = true; BG.error = "";
+  syncPanel();
+  let bmp;
+  try { bmp = await createImageBitmap(blob); }
+  catch (e) {
+    BG.loading = false;
+    BG.error = `« ${name || "Ce fichier"} » ne peut pas être lu. Essaie un PNG, un JPEG ou un WebP.`;
+    syncPanel();
+    return;
+  }
+  // Au-delà de 4 096 pixels, on réduit : c'est assez pour un export 4K et ça reste léger
+  const MAX = 4096, k = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+  if (k < 1) {
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+    bmp = await createImageBitmap(blob);
+  }
+  if (BG.url) URL.revokeObjectURL(BG.url);
+  Object.assign(BG, { img: bmp, blob, name: name || "Image", w: bmp.width, h: bmp.height, url: URL.createObjectURL(blob), loading: false });
+  bgKey = "";
+  if (persist) {
+    try { await idb("readwrite", st => st.put({ blob, name: BG.name }, "background")); }
+    catch (e) { toast("Image appliquée, mais elle ne sera pas gardée après rechargement"); }
+  }
+  changed({ lut: true });
+  if (persist) toast("Image de fond appliquée");
+}
+
+async function clearBackground() {
+  if (BG.img) BG.img.close();
+  if (BG.url) URL.revokeObjectURL(BG.url);
+  Object.assign(BG, { img: null, blob: null, name: "", w: 0, h: 0, url: "", error: "" });
+  bgKey = "";
+  try { await idb("readwrite", st => st.delete("background")); } catch (e) {}
+  changed({ lut: true });
+  toast("Image de fond retirée");
+}
+
+async function restoreBackground() {
+  try {
+    const saved = await idb("readonly", st => st.get("background"));
+    if (saved && saved.blob) await setBackground(saved.blob, saved.name, false);
+  } catch (e) {}
+}
+
+// Place l'image dans un cadre w × h : « remplir » rogne, « adapter » laisse des bandes
+function bgRect(w, h) {
+  const k = (S.bgFit === "contain" ? Math.min : Math.max)(w / BG.w, h / BG.h);
+  const dw = BG.w * k, dh = BG.h * k;
+  return [(w - dw) / 2, (h - dh) / 2, dw, dh];
+}
+
+function paintBackground(g, w, h) {
+  g.fillStyle = S.bg;
+  g.fillRect(0, 0, w, h);
+  let [x, y, dw, dh] = bgRect(w, h);
+  const blur = S.bgBlur * Math.min(w, h) / 1000 * 40;
+  if (blur > 0.3 && canFilter) {
+    // On agrandit un peu l'image floutée pour que ses bords ne s'estompent pas dans le fond
+    if (S.bgFit !== "contain") { x -= blur * 2; y -= blur * 2; dw += blur * 4; dh += blur * 4; }
+    g.filter = `blur(${blur.toFixed(1)}px)`;
+  }
+  g.imageSmoothingQuality = "high";
+  g.drawImage(BG.img, x, y, dw, dh);
+  g.filter = "none";
+  if (S.bgVeil > 0) {
+    g.globalAlpha = S.bgVeil;
+    g.fillStyle = S.bg;
+    g.fillRect(0, 0, w, h);
+    g.globalAlpha = 1;
+  }
+}
+
+// Le fond de l'aperçu est mis en cache : il ne change qu'avec ses réglages
+const bgCache = document.createElement("canvas"), bgTmp = document.createElement("canvas");
+let bgKey = "";
+function composeBackground(g, w, h, cached) {
+  if (!hasImage()) return;
+  let back = bgCache;
+  if (cached) {
+    const key = `${w}x${h}|${S.bgFit}|${S.bgVeil}|${S.bgBlur}|${S.bg}`;
+    if (key !== bgKey) { bgCache.width = w; bgCache.height = h; paintBackground(bgCache.getContext("2d"), w, h); bgKey = key; }
+  } else {
+    back = document.createElement("canvas");
+    back.width = w; back.height = h;
+    paintBackground(back.getContext("2d"), w, h);
+  }
+  const tmp = cached ? bgTmp : document.createElement("canvas");
+  if (tmp.width !== w || tmp.height !== h) { tmp.width = w; tmp.height = h; }
+  tmp.getContext("2d").drawImage(g.canvas, 0, 0);
+  g.save();
+  g.globalCompositeOperation = "copy";
+  g.drawImage(back, 0, 0);
+  g.globalCompositeOperation = isLight(S.bg) ? "multiply" : "screen";
+  g.drawImage(tmp, 0, 0);
+  g.restore();
+}
+
+const blobToDataURL = blob => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); });
+
 /* ---------- Image par image ---------- */
 function resize() {
   const [fw, fh] = formatSize(S.format);
   const rect = stage.getBoundingClientRect();
-  const pad = 24;
-  const scale = Math.min((rect.width - pad * 2) / fw, (rect.height - pad * 2) / fh);
+  // Marge du bas plus grande : la barre flottante ne doit pas couvrir l'aperçu
+  const pad = 24, padBottom = 72;
+  const scale = Math.min((rect.width - pad * 2) / fw, (rect.height - pad - padBottom) / fh);
   const cssW = Math.max(50, Math.floor(fw * scale)), cssH = Math.max(50, Math.floor(fh * scale));
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
@@ -790,6 +919,7 @@ function renderFrame() {
     else { toneMap(buf, img32); ctx.putImageData(img, 0, 0); }
   }
   applyHalo(ctx, canvas, W, H);
+  composeBackground(ctx, W, H, true);
   postFx(ctx, W, H);
 }
 let frameCount = 0;
@@ -807,7 +937,8 @@ function primeBuffer(b, w, h, time) {
 /* ---------- Export ---------- */
 async function exportPNG() {
   const [w, h] = formatSize(S.format);
-  const btn = $("export-png");
+  toggleExportMenu(false);
+  const btn = $("export");
   btn.disabled = true;
   btn.classList.add("busy");
   btn.querySelector("span").textContent = "Rendu en cours";
@@ -826,7 +957,7 @@ async function exportPNG() {
   } finally {
     btn.disabled = false;
     btn.classList.remove("busy");
-    btn.querySelector("span").textContent = "PNG";
+    btn.querySelector("span").textContent = "Exporter";
   }
 }
 
@@ -853,15 +984,18 @@ function renderStill(c, g, w, h) {
       }
     }
     applyHalo(g, c, w, h);
+    composeBackground(g, w, h, false);
     postFx(g, w, h);
     return new Promise(r => c.toBlob(r, "image/png"));
   }
 }
 
-function exportSVG() {
-  withOverrides(t, exportSVGNow);
+async function exportSVG() {
+  toggleExportMenu(false);
+  const bgData = hasImage() ? await blobToDataURL(BG.blob) : "";
+  withOverrides(t, () => exportSVGNow(bgData));
 }
-function exportSVGNow() {
+function exportSVGNow(bgData) {
   const [w, h] = formatSize(S.format);
   const { unit, ox, oy, ca, sa } = transform(w, h);
   const [r, gg, b] = hex(S.c2), [r1, g1, b1] = hex(S.c1);
@@ -893,9 +1027,18 @@ function exportSVGNow() {
       }).join("") + "</g>";
   }
   const blur = (Math.min(w, h) / 1000 * (4 + S.haloSize * 6)).toFixed(1);
+  let backdrop = "";
+  if (bgData) {
+    const [x, y, dw, dh] = bgRect(w, h);
+    const bb = S.bgBlur * Math.min(w, h) / 1000 * 40;
+    backdrop = `<svg x="0" y="0" width="${w}" height="${h}"><image href="${bgData}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${dw.toFixed(1)}" height="${dh.toFixed(1)}" preserveAspectRatio="none"${bb > 0.3 ? ` filter="url(#bgblur)"` : ""}/></svg>
+  ${S.bgVeil > 0 ? `<rect width="100%" height="100%" fill="${S.bg}" fill-opacity="${S.bgVeil}"/>` : ""}`;
+    if (bb > 0.3) backdrop = backdrop.replace("<svg x", `<defs><filter id="bgblur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="${bb.toFixed(1)}"/></filter></defs>\n  <svg x`);
+  }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
   <defs><filter id="halo" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs>
   <rect width="100%" height="100%" fill="${S.bg}"/>
+  ${backdrop}
   ${S.halo > 0 ? `<g fill="none" stroke-width="${(lw * 3).toFixed(2)}" stroke-opacity="${Math.min(1, S.lineAlpha * S.halo)}" filter="url(#halo)" style="mix-blend-mode:${blend}">\n    ${paths}\n  </g>` : ""}
   <g fill="none" stroke-width="${lw}" stroke-opacity="${S.lineAlpha}" stroke-linejoin="round" style="mix-blend-mode:${blend}">
     ${paths}
@@ -989,6 +1132,12 @@ const CONTROLS = [
     { key: "c1", label: "Couleur moyenne", type: "color", lut: true },
     { key: "c2", label: "Couleur vive", type: "color", lut: true }
   ] },
+  { title: "Image de fond", items: [
+    { type: "bgimage", id: "bg-image" },
+    { key: "bgFit", type: "chips", options: [["cover", "Remplir"], ["contain", "Adapter"]], show: hasImage },
+    { key: "bgVeil", label: "Voile de la couleur de fond", min: 0, max: 1, step: 0.01, show: hasImage },
+    { key: "bgBlur", label: "Flou", min: 0, max: 1, step: 0.01, show: hasImage }
+  ] },
   { title: "Cadrage", items: [
     { key: "zoom", label: "Zoom", min: 0.2, max: 4, step: 0.01 },
     { key: "cx", label: "Position X", min: -1, max: 1, step: 0.005 },
@@ -999,68 +1148,136 @@ const CONTROLS = [
 
 const fmtNum = v => Math.abs(v) >= 100 ? String(Math.round(v)) : (+v.toFixed(3)).toString();
 
-function buildPanel() {
-  const panel = $("controls");
-  panel.innerHTML = "";
-  let closed = [];
-  try { closed = JSON.parse(localStorage.getItem("loop-closed")) || []; } catch (e) {}
-  CONTROLS.forEach((sec, si) => {
-    const s = document.createElement("section");
-    s.className = "sec" + (closed.includes(sec.title) ? " closed" : "");
-    s.style.setProperty("--i", si);
-    s.innerHTML = `<button type="button" class="sec-toggle" aria-expanded="${!closed.includes(sec.title)}"><h2>${sec.title}</h2><i class="ph ph-caret-down"></i></button>`;
-    s.querySelector(".sec-toggle").addEventListener("click", e => {
-      const isClosed = s.classList.toggle("closed");
-      e.currentTarget.setAttribute("aria-expanded", !isClosed);
-      const list = [...document.querySelectorAll(".sec.closed .sec-toggle h2")].map(h => h.textContent);
-      try { localStorage.setItem("loop-closed", JSON.stringify(list)); } catch (err) {}
+// Les sections sont regroupées en onglets ; le rail à droite du panneau passe de l'un à l'autre
+const TABS = [
+  { id: "styles", label: "Styles", icon: "ph-squares-four", sections: ["Préréglages"], extra: "keys" },
+  { id: "forme", label: "Forme", icon: "ph-shapes", sections: ["Forme", "Boucles"] },
+  { id: "mouvement", label: "Mouvement", icon: "ph-wind", sections: ["Mouvement"] },
+  { id: "rendu", label: "Rendu", icon: "ph-paint-brush", sections: ["Rendu", "Effets"] },
+  { id: "couleurs", label: "Couleurs", icon: "ph-palette", sections: ["Couleurs", "Image de fond"] },
+  { id: "cadrage", label: "Cadrage", icon: "ph-crop", sections: ["Cadrage"] }
+];
+let tab = "styles";
+try { tab = localStorage.getItem("loop-tab") || tab; } catch (e) {}
+if (!TABS.some(x => x.id === tab)) tab = "styles";
+
+const KEYS = [["Espace", "Pause et lecture"], ["R", "Combinaison aléatoire"], ["N", "Éditeur de nœuds"], ["H", "Masquer les réglages"], [/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ V" : "Ctrl V", "Coller une image de fond"]];
+
+function controlRow(c) {
+  const row = document.createElement("div");
+  row.className = "ctl";
+  row.dataset.key = c.key || c.id;
+  if (c.type === "presets") {
+    row.innerHTML = `<div class="presets">${Object.entries(PRESETS).map(([k, p]) => `<button type="button" class="preset" data-v="${k}"><span class="thumb"><img alt="" data-thumb="${k}"></span><span>${p.name}</span></button>`).join("")}</div>`;
+    row.addEventListener("click", e => {
+      const b = e.target.closest(".preset"); if (!b) return;
+      S = { ...presetSettings(b.dataset.v), format: S.format, freehand: S.freehand, bgFit: S.bgFit, bgVeil: S.bgVeil, bgBlur: S.bgBlur };
+      changed({ curve: true, rebuild: true, lut: true });
+      toast(PRESETS[b.dataset.v].name);
     });
-    for (const c of sec.items) {
-      const row = document.createElement("div");
-      row.className = "ctl";
-      row.dataset.key = c.key || c.id;
-      if (c.type === "presets") {
-        row.innerHTML = `<div class="presets">${Object.entries(PRESETS).map(([k, p]) => `<button type="button" class="preset" data-v="${k}"><span class="thumb"><img alt="" data-thumb="${k}"></span><span>${p.name}</span></button>`).join("")}</div>`;
-        row.addEventListener("click", e => {
-          const b = e.target.closest(".preset"); if (!b) return;
-          S = { ...presetSettings(b.dataset.v), format: S.format, freehand: S.freehand };
-          changed({ curve: true, rebuild: true, lut: true });
-          toast(PRESETS[b.dataset.v].name);
-        });
-      } else if (c.type === "chips") {
-        row.innerHTML = `<div class="chips">${c.options.map(([v, l]) => `<button type="button" class="chip" data-v="${v.replace(/"/g, "&quot;")}">${l}</button>`).join("")}</div>`;
-        row.addEventListener("click", e => {
-          const b = e.target.closest(".chip"); if (!b) return;
-          set(c.key, b.dataset.v, { rebuild: true, curve: c.key === "shape", lut: c.key === "charset" || c.key === "glyphs" });
-        });
-      } else if (c.type === "swatches") {
-        row.innerHTML = `<div class="swatches">${Object.entries(PALETTES).map(([k, p]) => `<button type="button" class="sw" data-v="${k}" title="${k}" aria-label="Palette ${k}" style="--a:${p[0]};--b:${p[1]};--c:${p[2]}"></button>`).join("")}</div>`;
-        row.addEventListener("click", e => {
-          const b = e.target.closest(".sw"); if (!b) return;
-          const [bg, c1, c2] = PALETTES[b.dataset.v];
-          Object.assign(S, { palette: b.dataset.v, bg, c1, c2, preset: "" });
-          changed({ lut: true });
-        });
-      } else if (c.type === "color") {
-        row.innerHTML = `<label class="color"><span>${c.label}</span><input type="color" value="${S[c.key]}"></label>`;
-        row.querySelector("input").addEventListener("input", e => { S.palette = ""; set(c.key, e.target.value, { lut: true }); });
-      } else if (c.type === "toggle") {
-        row.innerHTML = `<label class="toggle"><span>${c.label}</span><input type="checkbox"><i></i></label>`;
-        row.querySelector("input").addEventListener("change", e => set(c.key, e.target.checked, {}));
-      } else if (c.type === "button") {
-        row.innerHTML = `<button type="button" class="btn wide" id="${c.id}"><i class="ph ${c.icon}"></i>${c.label}</button>`;
-        row.querySelector("button").addEventListener("click", c.action);
-      } else {
-        row.innerHTML = `<div class="ctl-head"><label for="r-${c.key}">${c.label}</label><output></output></div><input id="r-${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}">`;
-        const input = row.querySelector("input");
-        input.addEventListener("input", () => set(c.key, +input.value, { rebuild: c.rebuild, curve: ["petals", "lissA", "lissB", "starN", "starDepth"].includes(c.key), lut: c.lut }));
-      }
-      s.appendChild(row);
+  } else if (c.type === "chips") {
+    row.innerHTML = `<div class="chips">${c.options.map(([v, l]) => `<button type="button" class="chip" data-v="${v.replace(/"/g, "&quot;")}">${l}</button>`).join("")}</div>`;
+    row.addEventListener("click", e => {
+      const b = e.target.closest(".chip"); if (!b) return;
+      set(c.key, b.dataset.v, { rebuild: c.key !== "bgFit", curve: c.key === "shape", lut: c.key === "charset" || c.key === "glyphs" });
+    });
+  } else if (c.type === "swatches") {
+    row.innerHTML = `<div class="swatches">${Object.entries(PALETTES).map(([k, p]) => `<button type="button" class="sw" data-v="${k}" title="${k}" aria-label="Palette ${k}" style="--a:${p[0]};--b:${p[1]};--c:${p[2]}"></button>`).join("")}</div>`;
+    row.addEventListener("click", e => {
+      const b = e.target.closest(".sw"); if (!b) return;
+      const [bg, c1, c2] = PALETTES[b.dataset.v];
+      Object.assign(S, { palette: b.dataset.v, bg, c1, c2, preset: "" });
+      changed({ lut: true });
+    });
+  } else if (c.type === "color") {
+    row.innerHTML = `<label class="color"><span>${c.label}</span><input type="color" value="${S[c.key]}"></label>`;
+    row.querySelector("input").addEventListener("input", e => { S.palette = ""; set(c.key, e.target.value, { lut: true }); });
+  } else if (c.type === "toggle") {
+    row.innerHTML = `<label class="toggle"><span>${c.label}</span><input type="checkbox"><i></i></label>`;
+    row.querySelector("input").addEventListener("change", e => set(c.key, e.target.checked, {}));
+  } else if (c.type === "button") {
+    row.innerHTML = `<button type="button" class="btn wide" id="${c.id}"><i class="ph ${c.icon}"></i>${c.label}</button>`;
+    row.querySelector("button").addEventListener("click", c.action);
+  } else if (c.type === "bgimage") {
+    // Rempli par syncPanel selon qu'une image est chargée ou non
+    row.addEventListener("click", e => {
+      const act = e.target.closest("[data-act]");
+      if (!act) return;
+      if (act.dataset.act === "pick") $("bg-file").click();
+      else if (act.dataset.act === "clear") clearBackground();
+    });
+  } else {
+    row.innerHTML = `<div class="ctl-head"><label for="r-${c.key}">${c.label}</label><output></output></div><input id="r-${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}">`;
+    const input = row.querySelector("input");
+    input.addEventListener("input", () => set(c.key, +input.value, { rebuild: c.rebuild, curve: CURVE_KEYS.includes(c.key), lut: c.lut }));
+  }
+  return row;
+}
+
+function buildPanel() {
+  const panel = $("controls"), rail = $("tabs");
+  panel.innerHTML = "";
+  rail.querySelectorAll(".tab[role=tab]").forEach(b => b.remove());
+  const foot = rail.querySelector(".rail-foot");
+  for (const tb of TABS) {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "tab"; btn.setAttribute("role", "tab");
+    btn.id = `tab-${tb.id}`; btn.dataset.tab = tb.id;
+    btn.setAttribute("aria-controls", `pane-${tb.id}`);
+    btn.innerHTML = `<i class="ph ${tb.icon}"></i>${tb.label}`;
+    btn.addEventListener("click", () => showTab(tb.id));
+    rail.insertBefore(btn, foot);
+
+    const pane = document.createElement("div");
+    pane.className = "tabpane"; pane.id = `pane-${tb.id}`; pane.setAttribute("role", "tabpanel");
+    pane.setAttribute("aria-labelledby", `tab-${tb.id}`);
+    const secs = CONTROLS.filter(sec => tb.sections.includes(sec.title));
+    const titled = secs.length + (tb.extra ? 1 : 0) > 1;
+    for (const [i, sec] of secs.entries()) {
+      const g = document.createElement("section");
+      g.className = "group";
+      g.style.setProperty("--i", i);
+      if (titled) g.innerHTML = `<h3>${sec.title}</h3>`;
+      for (const c of sec.items) g.appendChild(controlRow(c));
+      pane.appendChild(g);
     }
-    panel.appendChild(s);
-  });
+    if (tb.extra === "keys") {
+      const g = document.createElement("section");
+      g.className = "group";
+      g.style.setProperty("--i", secs.length);
+      g.innerHTML = `<h3>Raccourcis</h3><div class="shortcuts">${KEYS.map(([k, l]) => `<kbd>${k}</kbd><span>${l}</span>`).join("")}</div>`;
+      pane.appendChild(g);
+    }
+    panel.appendChild(pane);
+  }
+  showTab(tab, true);
   syncPanel();
 }
+
+function showTab(id, quiet) {
+  tab = id;
+  try { localStorage.setItem("loop-tab", id); } catch (e) {}
+  const tb = TABS.find(x => x.id === id);
+  $("tab-title").textContent = tb.label;
+  for (const x of TABS) {
+    $(`tab-${x.id}`).setAttribute("aria-selected", x.id === id);
+    $(`tab-${x.id}`).tabIndex = x.id === id ? 0 : -1;
+    $(`pane-${x.id}`).hidden = x.id !== id;
+  }
+  // Relance la cascade d'apparition des groupes
+  for (const g of $(`pane-${id}`).querySelectorAll(".group")) { g.style.animation = "none"; void g.offsetWidth; g.style.animation = ""; }
+  if (!quiet) $("controls").scrollTop = 0;
+}
+
+// Flèches haut et bas dans le rail, comme une vraie liste d'onglets
+$("tabs").addEventListener("keydown", e => {
+  if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(e.key) || !e.target.dataset.tab) return;
+  e.preventDefault();
+  const i = TABS.findIndex(x => x.id === tab), d = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1;
+  const next = TABS[(i + d + TABS.length) % TABS.length].id;
+  showTab(next);
+  $(`tab-${next}`).focus();
+});
 
 function syncPanel() {
   for (const sec of CONTROLS) for (const c of sec.items) {
@@ -1072,6 +1289,21 @@ function syncPanel() {
     else if (c.type === "swatches") row.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === S.palette));
     else if (c.type === "color") row.querySelector("input").value = S[c.key];
     else if (c.type === "toggle") row.querySelector("input").checked = !!S[c.key];
+    else if (c.type === "bgimage") {
+      const key = BG.loading ? "loading" : (BG.img ? BG.url : "none") + BG.error;
+      if (row.dataset.state === key) continue;
+      row.dataset.state = key;
+      row.innerHTML = BG.loading
+        ? `<div class="pick loading" aria-busy="true"><i class="ph ph-image-square"></i><span>Chargement de l'image</span><small>Réduction à 4 096 pixels si besoin</small></div>`
+        : BG.img
+        ? `<div class="bgfile"><img src="${BG.url}" alt=""><div><b></b><small>${BG.w} × ${BG.h}</small></div><span class="btns"><button type="button" class="btn icon ghost" data-act="pick" title="Remplacer l'image" aria-label="Remplacer l'image"><i class="ph ph-arrows-clockwise"></i></button><button type="button" class="btn icon ghost" data-act="clear" title="Retirer l'image" aria-label="Retirer l'image"><i class="ph ph-trash"></i></button></span></div>`
+        : `<button type="button" class="pick" data-act="pick"><i class="ph ph-image-square"></i><span>Choisir une image</span><small>ou glisse-la sur l'aperçu, ou colle-la</small></button>`;
+      if (BG.error) {
+        row.insertAdjacentHTML("beforeend", `<p class="field-error" role="alert"><i class="ph ph-warning-circle"></i><span></span></p>`);
+        row.querySelector(".field-error span").textContent = BG.error;
+      }
+      if (BG.img && !BG.loading) row.querySelector("b").textContent = BG.name;
+    }
     else if (c.type !== "button") {
       const input = row.querySelector("input");
       input.value = S[c.key];
@@ -1080,11 +1312,12 @@ function syncPanel() {
       input.style.setProperty("--p", `${p}%`);
     }
   }
-  document.querySelectorAll("#formats .chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === S.format));
+  $("format").value = S.format;
+  $("png-size").textContent = `${formatSize(S.format).join(" × ")}, ${FORMATS[S.format][0].toLowerCase()}`;
   $("pause").querySelector("i").className = paused ? "ph-fill ph-play" : "ph-fill ph-pause";
-  $("paused-badge").hidden = !paused;
   $("pause").setAttribute("aria-label", paused ? "Lecture" : "Pause");
-  $("export-svg").title = "Exporter en SVG (lignes vectorielles)";
+  $("pause").title = paused ? "Lecture (Espace)" : "Pause (Espace)";
+  $("live").classList.toggle("off", paused);
 }
 
 let rebuildT = 0;
@@ -1207,13 +1440,52 @@ function randomize() {
 }
 
 /* ---------- Barre d'outils et clavier ---------- */
-$("formats").innerHTML = Object.entries(FORMATS).map(([k, [l]]) => `<button type="button" class="chip" data-v="${k}">${l}</button>`).join("");
-$("formats").addEventListener("click", e => {
-  const b = e.target.closest(".chip"); if (!b) return;
-  S.format = b.dataset.v;
+$("format").innerHTML = Object.entries(FORMATS).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join("");
+$("format").addEventListener("change", e => {
+  S.format = e.target.value;
   resize();
   primeBuffer(buf, W, H, t);
   changed({});
+});
+
+// Menu d'export
+function toggleExportMenu(open) {
+  const menu = $("export-menu");
+  open = open ?? menu.hidden;
+  menu.hidden = !open;
+  $("export").setAttribute("aria-expanded", open);
+  if (open) menu.querySelector("button").focus();
+}
+$("export").addEventListener("click", () => toggleExportMenu());
+addEventListener("pointerdown", e => { if (!e.target.closest?.(".menu-wrap")) toggleExportMenu(false); });
+$("export-menu").addEventListener("keydown", e => {
+  const items = [...$("export-menu").querySelectorAll("button")], i = items.indexOf(document.activeElement);
+  if (e.key === "Escape") { toggleExportMenu(false); $("export").focus(); }
+  else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus(); }
+});
+
+// Image de fond : sélecteur de fichier, glisser-déposer sur l'aperçu, coller
+$("bg-file").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (f) setBackground(f, f.name);
+  e.target.value = "";
+});
+let dragDepth = 0;
+const isFileDrag = e => [...(e.dataTransfer?.types || [])].includes("Files");
+stage.addEventListener("dragenter", e => { if (!isFileDrag(e)) return; e.preventDefault(); dragDepth++; $("drop").hidden = false; });
+stage.addEventListener("dragover", e => { if (isFileDrag(e)) e.preventDefault(); });
+stage.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; $("drop").hidden = true; } });
+stage.addEventListener("drop", e => {
+  e.preventDefault();
+  dragDepth = 0; $("drop").hidden = true;
+  const f = [...e.dataTransfer.files].find(x => x.type.startsWith("image/"));
+  if (f) { setBackground(f, f.name); showTab("couleurs"); }
+  else { BG.error = "Ce fichier n'est pas une image. Dépose un PNG, un JPEG ou un WebP."; syncPanel(); showTab("couleurs"); }
+});
+addEventListener("paste", e => {
+  if (e.target.closest("input, textarea")) return;
+  const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith("image/"));
+  if (f) { e.preventDefault(); setBackground(f, f.name && f.name !== "image.png" ? f.name : "Image collée"); showTab("couleurs"); }
 });
 $("random").addEventListener("click", randomize);
 $("pause").addEventListener("click", togglePause);
@@ -1230,6 +1502,7 @@ $("reset").addEventListener("click", () => {
   toast("Réglages par défaut");
 });
 $("toggle-panel").addEventListener("click", () => togglePanel());
+$("show-panel").addEventListener("click", () => togglePanel());
 
 function toggleNodes(force) {
   const el = $("nodes");
@@ -1267,13 +1540,14 @@ function togglePause() {
 }
 function togglePanel() {
   document.body.classList.toggle("panel-hidden");
-  setTimeout(() => { resize(); primeBuffer(buf, W, H, t); }, 320);
+  requestAnimationFrame(() => { resize(); primeBuffer(buf, W, H, t); });
 }
 
 addEventListener("keydown", e => {
   if (e.target.closest("input, select, textarea") && e.target.type !== "range") return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "Escape" && drawing) { stopDrawing(true); return; }
+  if (e.target.closest(".menu")) return;
   if (e.code === "Space") { e.preventDefault(); togglePause(); }
   else if (e.key === "h" || e.key === "H") togglePanel();
   else if (e.key === "r" || e.key === "R") randomize();
@@ -1284,6 +1558,7 @@ let resizeT = 0;
 addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { resize(); primeBuffer(buf, W, H, t); }, 120); });
 
 function renderThumbs() {
+  BG.off = true;
   const keep = { S, P, filamentOffsets, orbitTilt, curve: curve.slice(), normals: normals.slice(), lut: lut.slice(), lutRGB, DMAX };
   const size = 120;
   for (const key of Object.keys(PRESETS)) {
@@ -1309,6 +1584,7 @@ function renderThumbs() {
   ({ S, P, filamentOffsets, orbitTilt, lutRGB, DMAX } = keep);
   curve.set(keep.curve); normals.set(keep.normals); lut.set(keep.lut);
   atlasKey = ""; glyphKey = "";
+  BG.off = false;
 }
 
 /* ---------- Démarrage ---------- */
@@ -1334,6 +1610,7 @@ resize();
 primeBuffer(buf, W, H, t);
 requestAnimationFrame(frame);
 setTimeout(renderThumbs, 400);
+restoreBackground();
 
 // Préférence système « réduire les animations » : on démarre en pause
 if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -1344,4 +1621,4 @@ if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
 }
 
 // Pour les tests automatisés
-window.__wall = { get editor() { return editor; }, toggleNodes, get S() { return S; }, set, changed, exportSVG, exportPNG, randomize, primeBuffer, get W() { return W; }, get H() { return H; }, get ms() { return msAvg; }, startDrawing, stopDrawing, get t() { return t; } };
+window.__wall = { get editor() { return editor; }, toggleNodes, get S() { return S; }, set, changed, exportSVG, exportPNG, randomize, primeBuffer, get W() { return W; }, get H() { return H; }, get ms() { return msAvg; }, startDrawing, stopDrawing, get t() { return t; }, setBackground, clearBackground, showTab };

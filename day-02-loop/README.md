@@ -1,6 +1,6 @@
 # 02 · Loop
 
-Un générateur de fonds d'écran : des milliers de particules qui tournent en boucle. Tu choisis la forme de la boucle (ou tu la dessines à la main), le rendu (points, ASCII ou vecteurs), le halo, les couleurs, puis tu exportes à la résolution de ton écran.
+Un générateur de fonds d'écran : des milliers de particules qui tournent en boucle. Tu choisis la forme de la boucle (ou tu la dessines à la main), le rendu (points, ASCII ou vecteurs), le halo, les couleurs, éventuellement ta propre image en fond, puis tu exportes à la résolution de ton écran.
 
 **[Ouvrir le générateur](https://withren.github.io/devtober/day-02-loop/)**
 
@@ -15,8 +15,10 @@ Un générateur de fonds d'écran : des milliers de particules qui tournent en b
 - **Anneaux en orbite** : jusqu'à 5 ellipses inclinées autour de la forme.
 - **Effets** : halo, aberration chromatique, grain.
 - **7 palettes** et trois couleurs libres (fond, moyenne, vive). Les fonds clairs fonctionnent aussi.
+- **Image de fond** : choisis une image, glisse-la sur l'aperçu ou colle-la. Elle remplit le cadre ou s'y adapte, avec un voile de la couleur de fond et un flou réglables. Elle est gardée dans le navigateur d'une visite à l'autre, mais pas dans le lien de partage.
 - **Cadrage** : zoom, position, angle.
 - **Export** : PNG à la résolution choisie (ton écran, 4K, 1440p, 1080p, ultra large, iPhone, Android, carré) et **SVG** vectoriel avec halo.
+- **Interface** : les réglages sont rangés en six onglets (Styles, Forme, Mouvement, Rendu, Couleurs, Cadrage), le format et la pause dans une barre flottante sous l'aperçu, PNG et SVG dans le menu Exporter.
 - **Aléatoire** (`R`), pause (`Espace`), masquer les réglages (`H`), et un lien de partage qui contient tous les réglages.
 
 ## Comment c'est codé
@@ -30,6 +32,7 @@ Un générateur de fonds d'écran : des milliers de particules qui tournent en b
 - **Halo** : l'image réduite deux fois (donc floutée), puis ajoutée par-dessus.
 - **Aberration chromatique** : l'image est séparée en trois calques rouge, vert et bleu par composition de canvas, le rouge légèrement agrandi, le bleu légèrement réduit, puis ils sont additionnés. Le grain est un motif de bruit en mode « overlay ». Les deux restent sur la carte graphique.
 - **Sphère et orbites** : chaque angle vaut « angle propre + rotation commune ». Le cosinus et le sinus de l'angle propre sont précalculés, puis tournés par une multiplication à chaque image : aucune fonction trigonométrique par particule. Le préréglage Orbite (171 000 particules) est passé de 56 à 21 ms par image.
+- **Image de fond** : les particules sont rendues sur du noir (ou du blanc si la palette est claire), puis posées sur l'image en mode « écran » (ou « produit »). L'image, son voile et son flou sont préparés une fois dans un canvas en cache : l'animation ne coûte qu'une copie de plus par image. Le fichier est gardé dans IndexedDB, réduit à 4 096 pixels au plus. Le SVG l'embarque en base64.
 - Aucune librairie.
 
 Performances mesurées sur un M1 Pro, aperçu de 1,6 mégapixel : environ 10 ms par image à 70 000 particules, 3 ms en vecteurs. L'export PNG en 4K prend moins d'une seconde.
