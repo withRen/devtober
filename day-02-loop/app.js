@@ -1146,6 +1146,8 @@ function stopDrawing(cancel) {
     S.shape = "libre";
     changed({ curve: true, rebuild: true });
     toast("Forme enregistrée");
+  } else if (!cancel) {
+    toast("Trace trop courte : dessine une boucle plus grande, d'un seul trait");
   }
   drawing = null;
 }
@@ -1332,6 +1334,14 @@ resize();
 primeBuffer(buf, W, H, t);
 requestAnimationFrame(frame);
 setTimeout(renderThumbs, 400);
+
+// Préférence système « réduire les animations » : on démarre en pause
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  paused = true;
+  primeBuffer(buf, W, H, t);
+  syncPanel();
+  toast("Animation en pause (préférence système), Espace pour lancer");
+}
 
 // Pour les tests automatisés
 window.__wall = { get editor() { return editor; }, toggleNodes, get S() { return S; }, set, changed, exportSVG, exportPNG, randomize, primeBuffer, get W() { return W; }, get H() { return H; }, get ms() { return msAvg; }, startDrawing, stopDrawing, get t() { return t; } };
