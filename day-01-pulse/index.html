@@ -3,24 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>01 · Pulse — Devtober 2026</title>
+  <title>Pulse, jour 01 | Devtober 2026</title>
+  <meta name="description" content="Un générateur de sons qui bat. Fréquence, forme d'onde, battement, et ton propre son à déformer.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Icônes : Phosphor (regular + fill) -->
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
   <style>
+    /* Palette Toyota : rouge, gris anthracite, quasi-blanc. Un seul accent. */
     :root {
-      --bg: #ffffff;
-      --surface: #f4f4f4;
-      --surface-hover: #ececec;
-      --line: #e1e1e1;
-      --line-strong: #c8c8c8;
+      color-scheme: light;
+      --bg: #fafafa;
+      --surface: #f0f0f1;
+      --surface-hover: #e8e8ea;
+      --line: #e0e0e2;
+      --line-strong: #c4c4c8;
       --text: #1a1a1a;
-      --muted: #58595b;
-      --faint: #9a9a9a;
+      --muted: #4f5053;
+      --faint: #6e6e73;
       --accent: #eb0a1e;
-      --accent-dim: rgba(235, 10, 30, .10);
+      --accent-rgb: 235 10 30;
+      --accent-text: #d20a1b;
+      --on-accent: #ffffff;
+      --accent-dim: rgb(235 10 30 / .09);
+      --shadow: 0 1px 2px rgb(26 26 26 / .08);
       --ease: cubic-bezier(.16, 1, .3, 1);
+      /* Arrondis : 16px pour les surfaces, pilule pour tout ce qui se clique en ligne */
+      --r-surface: 16px;
     }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #121214;
+        --surface: #1b1b1e;
+        --surface-hover: #232327;
+        --line: #2a2a2e;
+        --line-strong: #3d3d43;
+        --text: #f1f1f2;
+        --muted: #b0b0b6;
+        --faint: #8b8b92;
+        --accent-text: #ff5a66;
+        --accent-dim: rgb(235 10 30 / .16);
+        --shadow: 0 1px 2px rgb(0 0 0 / .4);
+      }
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       min-height: 100dvh;
@@ -30,15 +59,21 @@
       -webkit-font-smoothing: antialiased;
     }
     .mono { font-family: "Geist Mono", ui-monospace, monospace; }
+    button { font: inherit; color: inherit; }
 
+    /* ---------- Barre du haut ---------- */
     .topbar {
       display: flex; justify-content: space-between; align-items: center;
-      max-width: 1400px; margin: 0 auto;
-      padding: 20px clamp(16px, 4vw, 56px);
+      max-width: 1400px; height: 64px; margin: 0 auto;
+      padding: 0 clamp(16px, 4vw, 56px);
       font-size: 13px;
     }
-    .topbar a { color: var(--muted); text-decoration: none; transition: color .3s var(--ease); }
-    .topbar a:hover { color: var(--accent); }
+    .topbar a {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); text-decoration: none;
+      transition: color .3s var(--ease);
+    }
+    .topbar a:hover { color: var(--accent-text); }
     .crumb { color: var(--faint); }
     .crumb b { color: var(--text); font-weight: 500; }
 
@@ -47,78 +82,97 @@
       display: grid;
       grid-template-columns: 7fr 5fr;
       gap: clamp(24px, 4vw, 64px);
-      padding: 8px clamp(16px, 4vw, 56px) 56px;
+      padding: 0 clamp(16px, 4vw, 56px) 64px;
     }
 
     /* ---------- Scène ---------- */
     .stage {
-      position: relative;
-      min-height: min(78dvh, 720px);
-      border-radius: 20px;
+      position: sticky; top: 16px; align-self: start;
+      height: min(calc(100dvh - 96px), 760px);
+      min-height: 440px;
+      border-radius: var(--r-surface);
       background: var(--surface);
       border: 1px solid var(--line);
       overflow: hidden;
+      animation: fade .8s var(--ease) both;
     }
     canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    .play {
+      position: absolute; top: 20px; left: 20px;
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 44px; padding: 0 20px 0 16px;
+      border: 0; border-radius: 999px;
+      background: var(--accent); color: var(--on-accent);
+      font-weight: 500; font-size: 15px;
+      cursor: pointer;
+      transition: transform .3s var(--ease), filter .3s var(--ease);
+    }
+    .play:hover { filter: brightness(.92); }
+    .play:active { transform: scale(.97); }
+    .play i { font-size: 16px; }
+
+    /* État vide : affiché tant que rien ne joue */
+    .idle {
+      position: absolute; left: 50%; top: calc(50% + 21%);
+      transform: translateX(-50%);
+      display: grid; justify-items: center; gap: 6px;
+      text-align: center; font-size: 14px; color: var(--muted);
+      pointer-events: none;
+      transition: opacity .4s var(--ease), transform .4s var(--ease);
+    }
+    .idle kbd {
+      font: 500 12px "Geist Mono", monospace;
+      padding: 2px 8px; border-radius: 6px;
+      border: 1px solid var(--line-strong); background: var(--bg); color: var(--text);
+    }
+    .stage.is-playing .idle { opacity: 0; transform: translate(-50%, 6px); }
+
     .stage-info {
       position: absolute; left: 24px; bottom: 22px; right: 24px;
       display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;
       pointer-events: none;
     }
-    .readout { font-size: clamp(36px, 5vw, 64px); font-weight: 600; letter-spacing: -.04em; line-height: 1; }
-    .readout small { font-size: .4em; color: var(--faint); font-weight: 500; letter-spacing: 0; margin-left: 4px; }
     .readout-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .readout { font-size: clamp(36px, 4.6vw, 56px); font-weight: 600; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+    .readout small { font-size: .4em; color: var(--faint); font-weight: 500; letter-spacing: 0; margin-left: 4px; }
     .bpm { text-align: right; font-size: 13px; color: var(--muted); }
-    .bpm b { display: block; font-size: 22px; color: var(--text); font-weight: 500; }
-
-    .play {
-      position: absolute; top: 22px; left: 24px;
-      display: inline-flex; align-items: center; gap: 10px;
-      height: 44px; padding: 0 18px 0 14px;
-      border: 0; border-radius: 99px;
-      background: var(--accent); color: #fff;
-      font: 500 14px "Geist", sans-serif;
-      cursor: pointer;
-      transition: transform .3s var(--ease), background .3s var(--ease);
-    }
-    .play:hover { background: #c80818; }
-    .play:active { transform: scale(.97); }
-    .play svg { width: 16px; height: 16px; }
-    .hint { position: absolute; top: 34px; right: 24px; font-size: 12px; color: var(--faint); }
+    .bpm b { display: block; font-size: 22px; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
 
     /* ---------- Panneau ---------- */
-    .panel { display: grid; gap: 28px; align-content: start; }
+    .panel { display: grid; gap: 32px; align-content: start; }
+    .panel > * { animation: rise .7s var(--ease) both; animation-delay: calc(var(--i, 0) * 70ms + 100ms); }
 
-    h1 { font-size: 28px; font-weight: 600; letter-spacing: -.03em; }
-    .sub { color: var(--muted); font-size: 15px; line-height: 1.55; margin-top: 6px; max-width: 46ch; }
+    h1 { font-size: 32px; font-weight: 600; letter-spacing: -.035em; line-height: 1.1; }
+    .sub { color: var(--muted); font-size: 15px; line-height: 1.6; margin-top: 8px; max-width: 44ch; }
 
     .tabs {
       display: grid; grid-template-columns: 1fr 1fr;
       padding: 4px; gap: 4px;
-      background: var(--surface); border-radius: 12px;
+      background: var(--surface); border-radius: 999px;
     }
     .tab {
-      height: 38px; border: 0; border-radius: 9px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      height: 40px; border: 0; border-radius: 999px;
       background: transparent; color: var(--muted);
-      font: 500 14px "Geist", sans-serif; cursor: pointer;
+      font-weight: 500; font-size: 14px; cursor: pointer;
       transition: background .3s var(--ease), color .3s var(--ease);
     }
-    .tab[aria-selected="true"] { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(26,26,26,.08); }
+    .tab i { font-size: 16px; }
+    .tab[aria-selected="true"] { background: var(--bg); color: var(--text); box-shadow: var(--shadow); }
+    .tab:active { transform: scale(.98); }
 
-    .section { display: grid; gap: 18px; }
-    .section-title {
-      display: flex; align-items: center; gap: 12px;
-      font-size: 11px; color: var(--faint); letter-spacing: .08em; text-transform: uppercase;
-    }
-    .section-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    .group { display: grid; gap: 20px; padding-top: 24px; border-top: 1px solid var(--line); }
+    .group:first-of-type { border-top: 0; padding-top: 0; }
+    h2 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
 
     .field { display: grid; gap: 8px; }
-    .field-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
-    .field-head output { color: var(--text); }
+    .field-head { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+    .field-head output { color: var(--text); font-variant-numeric: tabular-nums; }
 
     input[type=range] {
       -webkit-appearance: none; appearance: none;
-      width: 100%; height: 22px; background: transparent; cursor: pointer;
+      width: 100%; height: 24px; background: transparent; cursor: pointer;
     }
     input[type=range]::-webkit-slider-runnable-track {
       height: 4px; border-radius: 4px;
@@ -138,68 +192,84 @@
 
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .chip {
-      height: 34px; padding: 0 14px;
-      border: 1px solid var(--line); border-radius: 99px;
+      height: 36px; padding: 0 14px;
+      border: 1px solid var(--line); border-radius: 999px;
       background: var(--bg); color: var(--muted);
-      font: 500 13px "Geist", sans-serif; cursor: pointer;
-      transition: border-color .3s var(--ease), color .3s var(--ease), background .3s var(--ease);
+      font-weight: 500; font-size: 13px; cursor: pointer;
+      transition: border-color .3s var(--ease), color .3s var(--ease), background .3s var(--ease), transform .2s var(--ease);
     }
     .chip:hover { border-color: var(--line-strong); color: var(--text); }
     .chip:active { transform: scale(.97); }
-    .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); background: var(--accent-dim); }
 
-    .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .preset {
-      display: grid; gap: 2px; text-align: left;
-      padding: 10px 12px; border-radius: 10px;
+      display: grid; gap: 4px; text-align: left;
+      padding: 12px 14px; border-radius: var(--r-surface);
       border: 1px solid var(--line); background: var(--bg);
-      font: 500 14px "Geist", sans-serif; color: var(--text); cursor: pointer;
-      transition: border-color .3s var(--ease), background .3s var(--ease);
+      font-weight: 500; font-size: 15px; cursor: pointer;
+      transition: border-color .3s var(--ease), background .3s var(--ease), transform .2s var(--ease);
     }
-    .preset span { font: 400 11px "Geist Mono", monospace; color: var(--faint); }
+    .preset span { font: 400 12px/1.5 "Geist Mono", monospace; color: var(--faint); }
     .preset:hover { border-color: var(--line-strong); background: var(--surface); }
     .preset:active { transform: scale(.98); }
+    .preset[aria-pressed="true"] { border-color: var(--accent); }
 
     .drop {
       display: grid; place-items: center; gap: 6px;
-      min-height: 140px; padding: 20px;
-      border: 1.5px dashed var(--line-strong); border-radius: 14px;
+      min-height: 148px; padding: 24px;
+      border: 1.5px dashed var(--line-strong); border-radius: var(--r-surface);
       text-align: center; color: var(--muted); font-size: 14px;
       cursor: pointer;
       transition: border-color .3s var(--ease), background .3s var(--ease);
     }
     .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-dim); }
     .drop b { color: var(--text); font-weight: 500; }
-    .drop .mono { font-size: 11px; color: var(--faint); }
-    .drop svg { width: 22px; height: 22px; color: var(--accent); }
-    .file-name { font-size: 13px; color: var(--text); word-break: break-all; }
-    .error { font-size: 13px; color: var(--accent); }
+    .drop .mono { font-size: 12px; color: var(--faint); }
+    .drop > i { font-size: 26px; color: var(--accent-text); }
+
+    .file-status { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text); min-height: 20px; }
+    .file-status i { font-size: 18px; color: var(--accent-text); }
+    .skeleton {
+      height: 12px; width: 60%; border-radius: 6px;
+      background: linear-gradient(90deg, var(--surface) 0%, var(--surface-hover) 50%, var(--surface) 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s linear infinite;
+    }
+    .error { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--accent-text); }
 
     [hidden] { display: none !important; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
+    @keyframes fade { from { opacity: 0; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
     @media (max-width: 900px) {
-      .layout { grid-template-columns: 1fr; }
-      .stage { min-height: 56dvh; }
+      .layout { grid-template-columns: 1fr; padding-bottom: 48px; }
+      .stage { position: relative; top: 0; height: 58dvh; min-height: 360px; }
       .presets { grid-template-columns: repeat(2, 1fr); }
-      .hint { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
     }
   </style>
 </head>
 <body>
   <header class="topbar mono">
-    <a href="../">&larr; Devtober</a>
+    <a href="../"><i class="ph ph-arrow-left"></i>Devtober</a>
     <span class="crumb">Jour 01 / <b>Pulse</b></span>
   </header>
 
   <div class="layout">
-    <section class="stage" aria-label="Visualisation">
-      <canvas id="viz"></canvas>
+    <section class="stage" id="stage" aria-label="Visualisation du son">
+      <canvas id="viz" aria-hidden="true"></canvas>
       <button class="play" id="play" type="button">
-        <svg viewBox="0 0 16 16" fill="currentColor" id="play-icon"><path d="M4 2.5v11l9-5.5z"/></svg>
+        <i class="ph-fill ph-play" id="play-icon"></i>
         <span id="play-label">Lancer</span>
       </button>
-      <span class="hint mono">Espace pour lancer / couper</span>
+      <p class="idle">Choisis un preset ou lance le son<span><kbd>Espace</kbd> pour lancer ou couper</span></p>
       <div class="stage-info">
         <div>
           <p class="readout-label mono" id="readout-label">Fréquence</p>
@@ -210,99 +280,102 @@
     </section>
 
     <aside class="panel">
-      <div>
+      <div style="--i:0">
         <h1>Pulse</h1>
-        <p class="sub">Un générateur de sons qui bat. Choisis une fréquence et une forme d'onde, ou dépose ton propre son, puis règle le battement par-dessus.</p>
+        <p class="sub">Un générateur de sons qui bat. Règle une fréquence, ou dépose ton propre son, puis donne-lui un rythme.</p>
       </div>
 
-      <div class="tabs" role="tablist">
-        <button class="tab" role="tab" aria-selected="true" data-mode="synth">Générateur</button>
-        <button class="tab" role="tab" aria-selected="false" data-mode="file">Ton son</button>
+      <div class="tabs" role="tablist" aria-label="Source du son" style="--i:1">
+        <button class="tab" role="tab" aria-selected="true" data-mode="synth"><i class="ph ph-wave-sine"></i>Générateur</button>
+        <button class="tab" role="tab" aria-selected="false" data-mode="file"><i class="ph ph-music-notes"></i>Ton son</button>
       </div>
 
-      <!-- Générateur -->
-      <div class="section" id="synth-panel">
-        <p class="section-title mono">Presets</p>
-        <div class="presets" id="presets"></div>
+      <div style="--i:2">
+        <!-- Générateur -->
+        <div class="group" id="synth-panel">
+          <h2>Presets</h2>
+          <div class="presets" id="presets"></div>
 
-        <p class="section-title mono">Oscillateur</p>
-        <div class="field">
-          <div class="field-head"><span>Fréquence</span><output class="mono" id="freq-out">110 Hz</output></div>
-          <input type="range" id="freq" min="0" max="1000" value="380">
-        </div>
-        <div class="field">
-          <div class="field-head"><span>Forme d'onde</span></div>
-          <div class="chips" id="waves">
-            <button class="chip" data-wave="sine" aria-pressed="true">Sinus</button>
-            <button class="chip" data-wave="triangle" aria-pressed="false">Triangle</button>
-            <button class="chip" data-wave="square" aria-pressed="false">Carré</button>
-            <button class="chip" data-wave="sawtooth" aria-pressed="false">Dent de scie</button>
+          <div class="field">
+            <div class="field-head"><label for="freq">Fréquence</label><output class="mono" id="freq-out">110 Hz</output></div>
+            <input type="range" id="freq" min="0" max="1000" value="380">
+          </div>
+          <div class="field">
+            <div class="field-head"><span id="waves-label">Forme d'onde</span></div>
+            <div class="chips" id="waves" role="group" aria-labelledby="waves-label">
+              <button class="chip" data-wave="sine" aria-pressed="true">Sinus</button>
+              <button class="chip" data-wave="triangle" aria-pressed="false">Triangle</button>
+              <button class="chip" data-wave="square" aria-pressed="false">Carré</button>
+              <button class="chip" data-wave="sawtooth" aria-pressed="false">Dent de scie</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-head"><span id="harm-label">Deuxième voix</span></div>
+            <div class="chips" id="harmonics" role="group" aria-labelledby="harm-label">
+              <button class="chip" data-ratio="0" aria-pressed="true">Aucune</button>
+              <button class="chip" data-ratio="0.5" aria-pressed="false">Octave basse</button>
+              <button class="chip" data-ratio="1.5" aria-pressed="false">Quinte</button>
+              <button class="chip" data-ratio="2" aria-pressed="false">Octave haute</button>
+              <button class="chip" data-ratio="1.01" aria-pressed="false">Ondulation</button>
+            </div>
           </div>
         </div>
-        <div class="field">
-          <div class="field-head"><span>Deuxième voix</span></div>
-          <div class="chips" id="harmonics">
-            <button class="chip" data-ratio="0" aria-pressed="true">Aucune</button>
-            <button class="chip" data-ratio="0.5" aria-pressed="false">Octave -</button>
-            <button class="chip" data-ratio="1.5" aria-pressed="false">Quinte</button>
-            <button class="chip" data-ratio="2" aria-pressed="false">Octave +</button>
-            <button class="chip" data-ratio="1.01" aria-pressed="false">Battement</button>
+
+        <!-- Fichier perso -->
+        <div class="group" id="file-panel" hidden>
+          <h2>Ton son</h2>
+          <label class="drop" id="drop">
+            <i class="ph ph-upload-simple"></i>
+            <span><b>Dépose un fichier audio</b> ou clique pour choisir</span>
+            <span class="mono">mp3, wav, ogg, m4a</span>
+            <input type="file" id="file" accept="audio/*" hidden>
+          </label>
+          <div class="file-status" id="file-loading" hidden><div class="skeleton"></div></div>
+          <p class="file-status mono" id="file-name" hidden></p>
+          <p class="error" id="file-error" role="alert" hidden></p>
+          <div class="field">
+            <div class="field-head"><label for="rate">Vitesse et hauteur</label><output class="mono" id="rate-out">1.00×</output></div>
+            <input type="range" id="rate" min="25" max="200" value="100">
+          </div>
+          <div class="field">
+            <div class="field-head"><span id="dir-label">Sens de lecture</span></div>
+            <div class="chips" id="direction" role="group" aria-labelledby="dir-label">
+              <button class="chip" data-dir="1" aria-pressed="true">Normal</button>
+              <button class="chip" data-dir="-1" aria-pressed="false">À l'envers</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Fichier perso -->
-      <div class="section" id="file-panel" hidden>
-        <p class="section-title mono">Ton son</p>
-        <label class="drop" id="drop">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 15V4m0 0L8 8m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg>
-          <span><b>Dépose un fichier audio</b> ou clique pour choisir</span>
-          <span class="mono">mp3, wav, ogg, m4a</span>
-          <input type="file" id="file" accept="audio/*" hidden>
-        </label>
-        <p class="file-name mono" id="file-name" hidden></p>
-        <p class="error" id="file-error" hidden></p>
+      <div class="group" style="--i:3">
+        <h2>Battement</h2>
         <div class="field">
-          <div class="field-head"><span>Vitesse / hauteur</span><output class="mono" id="rate-out">1.00×</output></div>
-          <input type="range" id="rate" min="25" max="200" value="100">
-        </div>
-        <div class="field">
-          <div class="field-head"><span>Sens de lecture</span></div>
-          <div class="chips" id="direction">
-            <button class="chip" data-dir="1" aria-pressed="true">Normal</button>
-            <button class="chip" data-dir="-1" aria-pressed="false">Inversé</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Commun -->
-      <div class="section">
-        <p class="section-title mono">Battement</p>
-        <div class="field">
-          <div class="field-head"><span>Tempo</span><output class="mono" id="bpm-out">60 BPM</output></div>
+          <div class="field-head"><label for="bpm">Tempo</label><output class="mono" id="bpm-out">60 BPM</output></div>
           <input type="range" id="bpm" min="20" max="240" value="60">
         </div>
         <div class="field">
-          <div class="field-head"><span>Intensité</span><output class="mono" id="depth-out">80 %</output></div>
+          <div class="field-head"><label for="depth">Intensité</label><output class="mono" id="depth-out">80 %</output></div>
           <input type="range" id="depth" min="0" max="100" value="80">
         </div>
         <div class="field">
-          <div class="field-head"><span>Forme du battement</span></div>
-          <div class="chips" id="shapes">
+          <div class="field-head"><span id="shape-label">Forme du battement</span></div>
+          <div class="chips" id="shapes" role="group" aria-labelledby="shape-label">
             <button class="chip" data-shape="heart" aria-pressed="true">Cœur</button>
             <button class="chip" data-shape="tick" aria-pressed="false">Impulsion</button>
             <button class="chip" data-shape="wave" aria-pressed="false">Vague</button>
             <button class="chip" data-shape="gate" aria-pressed="false">Hachoir</button>
           </div>
         </div>
+      </div>
 
-        <p class="section-title mono">Filtre et sortie</p>
+      <div class="group" style="--i:4">
+        <h2>Sortie</h2>
         <div class="field">
-          <div class="field-head"><span>Filtre passe-bas</span><output class="mono" id="cutoff-out">20000 Hz</output></div>
+          <div class="field-head"><label for="cutoff">Filtre passe-bas</label><output class="mono" id="cutoff-out">20 kHz</output></div>
           <input type="range" id="cutoff" min="0" max="1000" value="1000">
         </div>
         <div class="field">
-          <div class="field-head"><span>Volume</span><output class="mono" id="vol-out">50 %</output></div>
+          <div class="field-head"><label for="vol">Volume</label><output class="mono" id="vol-out">50 %</output></div>
           <input type="range" id="vol" min="0" max="100" value="50">
         </div>
       </div>
@@ -330,7 +403,7 @@
       reversed: null
     };
 
-    // Échelle logarithmique 20 Hz – 20 kHz pour les sliders de fréquence
+    // Échelle logarithmique pour les sliders de fréquence
     const logScale = (v, min, max) => Math.round(min * Math.pow(max / min, v / 1000));
     const invLog = (f, min, max) => Math.round(1000 * Math.log(f / min) / Math.log(max / min));
 
@@ -338,6 +411,7 @@
     let ctx, pulseGain, filter, master, analyser;
     let sources = [];
     let schedulerId = null, nextBeat = 0;
+    const beatTimes = [];
 
     function initAudio() {
       if (ctx) return;
@@ -377,7 +451,7 @@
           g.gain.value = level * (state.wave === "square" || state.wave === "sawtooth" ? 0.35 : 0.8);
           osc.connect(g).connect(pulseGain);
           osc.start();
-          sources.push({ kind: "osc", node: osc, gain: g, ratio });
+          sources.push({ kind: "osc", node: osc, ratio });
         }
       } else if (state.buffer) {
         const src = ctx.createBufferSource();
@@ -399,7 +473,7 @@
     }
 
     // ---------- Battement : enveloppes planifiées en avance ----------
-    // Chaque forme renvoie une liste [temps relatif au battement (0–1), niveau (0–1)]
+    // Chaque forme est une liste [position dans le battement (0-1), niveau (0-1)]
     const SHAPES = {
       heart: [[0, 0], [0.04, 1], [0.14, 0.15], [0.22, 0.75], [0.34, 0], [1, 0]],
       tick:  [[0, 0], [0.02, 1], [0.25, 0], [1, 0]],
@@ -410,9 +484,8 @@
     function scheduleBeat(t0) {
       const period = 60 / state.bpm;
       const floor = 1 - state.depth;
-      const g = pulseGain.gain;
       for (const [x, y] of SHAPES[state.shape]) {
-        g.linearRampToValueAtTime(floor + state.depth * y, t0 + x * period);
+        pulseGain.gain.linearRampToValueAtTime(floor + state.depth * y, t0 + x * period);
       }
       beatTimes.push(t0);
       if (beatTimes.length > 8) beatTimes.shift();
@@ -447,6 +520,7 @@
       nextBeat = ctx.currentTime + 0.05;
       startSources();
       scheduler();
+      clearInterval(schedulerId);
       schedulerId = setInterval(scheduler, 25);
       updatePlayButton();
     }
@@ -467,9 +541,8 @@
 
     function updatePlayButton() {
       $("play-label").textContent = state.playing ? "Couper" : "Lancer";
-      $("play-icon").innerHTML = state.playing
-        ? '<rect x="3.5" y="3" width="3" height="10" rx=".5"/><rect x="9.5" y="3" width="3" height="10" rx=".5"/>'
-        : '<path d="M4 2.5v11l9-5.5z"/>';
+      $("play-icon").className = state.playing ? "ph-fill ph-pause" : "ph-fill ph-play";
+      $("stage").classList.toggle("is-playing", state.playing);
     }
 
     // ---------- Interface ----------
@@ -491,6 +564,7 @@
         const chip = e.target.closest(".chip");
         if (!chip) return;
         group.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === chip));
+        clearPreset();
         onPick(chip.dataset[attr]);
       });
     }
@@ -507,6 +581,7 @@
     bindRange("depth", v => { state.depth = v / 100; $("depth-out").textContent = v + " %"; });
     bindRange("vol", v => { state.vol = v / 100; $("vol-out").textContent = v + " %"; });
     bindRange("rate", v => { state.rate = v / 100; $("rate-out").textContent = state.rate.toFixed(2) + "×"; });
+    ["freq", "bpm", "depth", "cutoff"].forEach(id => $(id).addEventListener("input", e => { if (e.isTrusted) clearPreset(); }));
 
     // Les changements de forme ou de voix demandent de recréer les oscillateurs
     const rebuild = () => { if (state.playing) startSources(); };
@@ -534,6 +609,7 @@
       state.mode = tab.dataset.mode;
       $("synth-panel").hidden = state.mode !== "synth";
       $("file-panel").hidden = state.mode !== "file";
+      showError("");
       updateReadout();
       if (state.playing) {
         if (state.mode === "file" && !state.buffer) stop();
@@ -552,8 +628,12 @@
     ];
 
     $("presets").innerHTML = PRESETS.map((p, i) =>
-      `<button class="preset" data-i="${i}">${p.name}<span>${fmtHz(p.freq)} · ${p.bpm} BPM</span></button>`
+      `<button class="preset" data-i="${i}" aria-pressed="false">${p.name}<span>${fmtHz(p.freq)}<br>${p.bpm} BPM</span></button>`
     ).join("");
+
+    function clearPreset() {
+      $("presets").querySelectorAll(".preset").forEach(b => b.setAttribute("aria-pressed", "false"));
+    }
 
     $("presets").addEventListener("click", e => {
       const btn = e.target.closest(".preset");
@@ -568,22 +648,25 @@
       set("bpm", p.bpm);
       set("depth", p.depth);
       set("cutoff", invLog(p.cutoff, 60, 20000));
+      clearPreset();
+      btn.setAttribute("aria-pressed", "true");
       if (state.playing) { startSources(); restartPulse(); } else play();
     });
 
     // Fichier perso : glisser-déposer ou sélection
     function showError(msg) {
-      $("file-error").textContent = msg;
+      $("file-error").innerHTML = msg ? `<i class="ph ph-warning-circle"></i>${msg}` : "";
       $("file-error").hidden = !msg;
     }
 
     async function loadFile(file) {
       if (!file) return;
       showError("");
+      $("file-name").hidden = true;
+      $("file-loading").hidden = false;
       initAudio();
       try {
-        const data = await file.arrayBuffer();
-        const buffer = await ctx.decodeAudioData(data);
+        const buffer = await ctx.decodeAudioData(await file.arrayBuffer());
         // Copie inversée pour la lecture à l'envers
         const rev = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
         for (let c = 0; c < buffer.numberOfChannels; c++) {
@@ -591,11 +674,13 @@
         }
         state.buffer = buffer;
         state.reversed = rev;
-        $("file-name").textContent = `${file.name} · ${buffer.duration.toFixed(1)} s`;
+        $("file-name").innerHTML = `<i class="ph ph-file-audio"></i>${file.name.replace(/</g, "&lt;")}, ${buffer.duration.toFixed(1)} s`;
         $("file-name").hidden = false;
         if (state.playing) startSources(); else play();
       } catch (err) {
         showError("Impossible de lire ce fichier. Essaie un mp3 ou un wav.");
+      } finally {
+        $("file-loading").hidden = true;
       }
     }
 
@@ -621,11 +706,22 @@
     // ---------- Visualisation ----------
     const canvas = $("viz");
     const g2d = canvas.getContext("2d");
-    const beatTimes = [];
-    let W, H, dpr, timeData, smooth = 0;
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    let W, H, timeData, smooth = 0, colors = {};
+
+    function readColors() {
+      const css = getComputedStyle(document.documentElement);
+      colors = {
+        accent: css.getPropertyValue("--accent").trim(),
+        rgb: css.getPropertyValue("--accent-rgb").trim(),
+        idle: css.getPropertyValue("--line-strong").trim()
+      };
+    }
+    readColors();
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColors);
 
     function resize() {
-      dpr = Math.min(devicePixelRatio || 1, 2);
+      const dpr = Math.min(devicePixelRatio || 1, 2);
       W = canvas.clientWidth; H = canvas.clientHeight;
       canvas.width = W * dpr; canvas.height = H * dpr;
       g2d.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -633,18 +729,15 @@
     new ResizeObserver(resize).observe(canvas);
     resize();
 
-    const css = getComputedStyle(document.documentElement);
-    const ACCENT = css.getPropertyValue("--accent").trim();
-    const LINE = css.getPropertyValue("--line-strong").trim();
-
     function draw() {
       g2d.clearRect(0, 0, W, H);
       const cx = W / 2, cy = H / 2 - 20;
       const base = Math.min(W, H) * 0.2;
+      const live = state.playing && analyser;
 
       // Niveau sonore actuel (RMS)
       let level = 0;
-      if (analyser && state.playing) {
+      if (live) {
         timeData = timeData || new Float32Array(analyser.fftSize);
         analyser.getFloatTimeDomainData(timeData);
         let sum = 0;
@@ -653,44 +746,44 @@
       }
       smooth += (level - smooth) * 0.25;
 
-      // Ondes qui s'éloignent à chaque battement
-      if (ctx && state.playing) {
+      // Une onde part du centre à chaque battement
+      if (live && !reduceMotion.matches) {
         const period = 60 / state.bpm;
+        g2d.lineWidth = 1.5;
+        g2d.strokeStyle = colors.accent;
         for (const t of beatTimes) {
           const age = (ctx.currentTime - t) / (period * 2.5);
           if (age < 0 || age > 1) continue;
+          g2d.globalAlpha = (1 - age) * 0.35;
           g2d.beginPath();
           g2d.arc(cx, cy, base + age * Math.min(W, H) * 0.35, 0, Math.PI * 2);
-          g2d.strokeStyle = ACCENT;
-          g2d.globalAlpha = (1 - age) * 0.35;
-          g2d.lineWidth = 1.5;
           g2d.stroke();
         }
         g2d.globalAlpha = 1;
       }
 
-      // Anneau de forme d'onde
+      // Anneau qui prend la forme de l'onde réelle
       const r = base * (1 + smooth * 0.5);
       const N = 256;
       g2d.beginPath();
       for (let i = 0; i <= N; i++) {
         const a = (i / N) * Math.PI * 2 - Math.PI / 2;
-        const sample = timeData && state.playing ? timeData[Math.floor((i % N) / N * 1024)] : 0;
+        const sample = live ? timeData[Math.floor((i % N) / N * 1024)] : 0;
         const rr = r + sample * base * 0.6;
         const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
         i ? g2d.lineTo(x, y) : g2d.moveTo(x, y);
       }
       g2d.closePath();
-      g2d.fillStyle = state.playing ? `rgba(235, 10, 30, ${0.06 + smooth * 0.18})` : "rgba(26,26,26,.03)";
+      g2d.fillStyle = live ? `rgb(${colors.rgb} / ${0.06 + smooth * 0.18})` : "transparent";
       g2d.fill();
-      g2d.strokeStyle = state.playing ? ACCENT : LINE;
+      g2d.strokeStyle = live ? colors.accent : colors.idle;
       g2d.lineWidth = 2;
       g2d.stroke();
 
       // Point central
       g2d.beginPath();
       g2d.arc(cx, cy, 5 + smooth * 10, 0, Math.PI * 2);
-      g2d.fillStyle = state.playing ? ACCENT : LINE;
+      g2d.fillStyle = live ? colors.accent : colors.idle;
       g2d.fill();
 
       requestAnimationFrame(draw);
