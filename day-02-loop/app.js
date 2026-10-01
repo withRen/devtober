@@ -76,7 +76,7 @@ const PRESETS = {
     graph: presetGraph([
       { id: "n1", type: "souris", x: 0, y: 400, p: { lissage: 0.9 } },
       { id: "n2", type: "plage", x: 260, y: 400, p: { valeur: 0, deMin: -1, deMax: 1, versMin: 0, versMax: 0.45, borner: "oui" } },
-      { id: "n3", type: "math", x: 260, y: 600, p: { op: "multiplication", a: 0, b: 1.2 } }
+      { id: "n3", type: "math", x: 260, y: 680, p: { op: "multiplication", a: 0, b: 1.2 } }
     ], [
       { fn: "n1", fo: "x", tn: "n2", ti: "valeur" },
       { fn: "n2", fo: "valeur", tn: "sec:Mouvement", ti: "turb" },
@@ -809,6 +809,7 @@ async function exportPNG() {
   const [w, h] = formatSize(S.format);
   const btn = $("export-png");
   btn.disabled = true;
+  btn.classList.add("busy");
   btn.querySelector("span").textContent = "Rendu en cours";
   await new Promise(r => setTimeout(r, 30));
   try {
@@ -824,6 +825,7 @@ async function exportPNG() {
     toast("L'export a échoué : résolution trop grande pour ce navigateur ?");
   } finally {
     btn.disabled = false;
+    btn.classList.remove("busy");
     btn.querySelector("span").textContent = "PNG";
   }
 }
@@ -1000,10 +1002,19 @@ const fmtNum = v => Math.abs(v) >= 100 ? String(Math.round(v)) : (+v.toFixed(3))
 function buildPanel() {
   const panel = $("controls");
   panel.innerHTML = "";
+  let closed = [];
+  try { closed = JSON.parse(localStorage.getItem("loop-closed")) || []; } catch (e) {}
   CONTROLS.forEach((sec, si) => {
     const s = document.createElement("section");
-    s.className = "sec";
-    s.innerHTML = `<h2>${sec.title}</h2>`;
+    s.className = "sec" + (closed.includes(sec.title) ? " closed" : "");
+    s.style.setProperty("--i", si);
+    s.innerHTML = `<button type="button" class="sec-toggle" aria-expanded="${!closed.includes(sec.title)}"><h2>${sec.title}</h2><i class="ph ph-caret-down"></i></button>`;
+    s.querySelector(".sec-toggle").addEventListener("click", e => {
+      const isClosed = s.classList.toggle("closed");
+      e.currentTarget.setAttribute("aria-expanded", !isClosed);
+      const list = [...document.querySelectorAll(".sec.closed .sec-toggle h2")].map(h => h.textContent);
+      try { localStorage.setItem("loop-closed", JSON.stringify(list)); } catch (err) {}
+    });
     for (const c of sec.items) {
       const row = document.createElement("div");
       row.className = "ctl";
@@ -1071,6 +1082,7 @@ function syncPanel() {
   }
   document.querySelectorAll("#formats .chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === S.format));
   $("pause").querySelector("i").className = paused ? "ph-fill ph-play" : "ph-fill ph-pause";
+  $("paused-badge").hidden = !paused;
   $("pause").setAttribute("aria-label", paused ? "Lecture" : "Pause");
   $("export-svg").title = "Exporter en SVG (lignes vectorielles)";
 }

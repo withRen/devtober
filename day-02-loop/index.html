@@ -28,6 +28,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
+    body { height: 100dvh; }
     body {
       background: var(--bg); color: var(--text);
       font-family: "Geist", system-ui, sans-serif; font-size: 14px;
@@ -97,7 +98,7 @@
     .node {
       position: absolute; width: 220px; border-radius: 10px;
       background: #1c1c20; border: 1px solid #2e2e34;
-      box-shadow: 0 12px 30px -12px #000; cursor: default; font-size: 12px;
+      box-shadow: 0 12px 30px -12px rgb(5 5 6 / .9); cursor: default; font-size: 12px;
     }
     .node.sel { border-color: #e6e6e9; }
     .node header {
@@ -107,8 +108,9 @@
       background: #26262b; border-bottom: 1px solid #2e2e34;
     }
     .node.pipe header { background: #2b2b31; }
-    .node.cat-entree header { background: #1f3a33; }
-    .node.cat-outil header { background: #2c2a44; }
+    .node.cat-entree header, .node.cat-outil header { background: #26262b; }
+    .node.cat-entree header { box-shadow: inset 3px 0 0 #e6e6e9; }
+    .node.cat-outil header { box-shadow: inset 3px 0 0 #6e6e76; }
     .node header i { font-size: 14px; color: var(--muted); }
     .nx { margin-left: auto; display: grid; place-items: center; width: 20px; height: 20px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
     .nx:hover { background: #ffffff18; color: var(--text); }
@@ -144,9 +146,9 @@
     .node .sel, .node .col, .node .tog { flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #c9c9cf; }
     .node select { flex: 1; max-width: 120px; height: 22px; border-radius: 5px; border: 1px solid #38383e; background: #2a2a30; color: #fff; font: 12px "Geist", sans-serif; padding: 0 4px; }
     .node input[type=color] { width: 40px; height: 20px; border: 1px solid #38383e; border-radius: 5px; background: none; padding: 1px; }
-    .viewer { display: block; width: calc(100% - 20px); margin: 4px 10px; border-radius: 6px; background: #000; }
+    .viewer { display: block; width: calc(100% - 20px); margin: 4px 10px; border-radius: 6px; background: #0a0a0b; }
 
-    .ne-menu { position: absolute; z-index: 5; width: 190px; padding: 6px; border-radius: 10px; background: #1c1c20; border: 1px solid #38383e; box-shadow: 0 20px 40px -10px #000; }
+    .ne-menu { position: absolute; z-index: 5; width: 190px; padding: 6px; border-radius: 10px; background: #1c1c20; border: 1px solid #38383e; box-shadow: 0 20px 40px -10px rgb(5 5 6 / .9); }
     .ne-menu p { padding: 6px 8px 4px; font-size: 11px; color: var(--faint); }
     .ne-menu button { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font-size: 13px; cursor: pointer; text-align: left; }
     .ne-menu button:hover { background: #2e2e34; }
@@ -155,12 +157,19 @@
       background-image: radial-gradient(circle, #ffffff0c 1px, transparent 1.2px);
       background-size: 18px 18px;
     }
-    #view, #draw { grid-area: 1 / 1; display: block; box-shadow: 0 0 0 1px var(--line), 0 30px 80px -30px #000; }
+    #view, #draw { grid-area: 1 / 1; display: block; box-shadow: 0 0 0 1px var(--line), 0 30px 80px -30px rgb(5 5 6 / .95); }
     #draw { position: relative; z-index: 1; box-shadow: none; pointer-events: none; cursor: crosshair; }
     #stage.drawing #draw { pointer-events: auto; }
     #stage.drawing #view { opacity: .35; }
 
     .stage-meta { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); pointer-events: none; }
+    #paused-badge {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+      background: var(--raise); border: 1px solid var(--line-strong); font-size: 12px; color: var(--muted); pointer-events: none;
+    }
+    .btn.busy { position: relative; overflow: hidden; }
+    .btn.busy::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgb(11 11 12 / .25) 50%, transparent 70%); background-size: 220% 100%; animation: shimmer 1s linear infinite; }
     #draw-hint {
       position: absolute; top: 46px; left: 50%; transform: translateX(-50%);
       padding: 8px 14px; border-radius: 999px; background: var(--raise); border: 1px solid var(--line-strong);
@@ -174,7 +183,14 @@
     .panel { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
     .panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
     .sec { padding: 16px; border-bottom: 1px solid var(--line); display: grid; gap: 14px; }
+    .sec { animation: rise .5s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
     .sec h2 { font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+    .sec-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0; border: 0; background: none; color: var(--text); cursor: pointer; text-align: left; }
+    .sec-toggle i { color: var(--faint); font-size: 14px; transition: transform .3s cubic-bezier(.16, 1, .3, 1); }
+    .sec.closed .sec-toggle i { transform: rotate(-90deg); }
+    .sec.closed > .ctl { display: none; }
+    .sec.closed { gap: 0; }
     .ctl { display: grid; gap: 6px; }
     .ctl[hidden] { display: none; }
     .ctl-head { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 13px; }
@@ -207,7 +223,14 @@
     .preset span:last-child { padding: 0 4px; }
     .preset:hover { border-color: #55555c; color: var(--text); }
     .preset[aria-pressed="true"] { border-color: var(--text); color: var(--text); }
-    .thumb { display: block; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #000; }
+    .thumb { position: relative; display: block; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #0a0a0b; }
+    .thumb:has(img:not([src]))::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(100deg, transparent 30%, #ffffff10 50%, transparent 70%);
+      background-size: 220% 100%; animation: shimmer 1.3s linear infinite;
+    }
+    @keyframes shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+    .preset:active, .chip:active, .sw:active { transform: scale(.97); }
     .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .thumb img:not([src]) { visibility: hidden; }
     .swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
@@ -280,6 +303,7 @@
         <canvas id="view" aria-label="Aperçu du fond d'écran"></canvas>
         <canvas id="draw" aria-label="Zone de dessin"></canvas>
         <div class="stage-meta mono"><span id="frame-size"></span><span id="perf"></span></div>
+        <p id="paused-badge" hidden><i class="ph-fill ph-pause"></i>En pause, <kbd>Espace</kbd> pour reprendre</p>
         <p id="draw-hint" hidden>Dessine une boucle d'un seul trait, relâche pour valider. <kbd>Échap</kbd> pour annuler.</p>
       </div>
       <section id="nodes" class="nodes" hidden aria-label="Éditeur de nœuds"></section>

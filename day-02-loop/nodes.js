@@ -594,7 +594,7 @@ export function createNodeEditor(api) {
       const src = api.canvas();
       const g = viewer.getContext("2d");
       const k = Math.min(viewer.width / src.width, viewer.height / src.height);
-      g.fillStyle = "#000"; g.fillRect(0, 0, viewer.width, viewer.height);
+      g.fillStyle = "#0a0a0b"; g.fillRect(0, 0, viewer.width, viewer.height);
       g.drawImage(src, (viewer.width - src.width * k) / 2, (viewer.height - src.height * k) / 2, src.width * k, src.height * k);
     }
   }
