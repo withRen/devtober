@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>Devtober 2026</title>
+<style>body{font-family:system-ui;background:#111;color:#eee;margin:2rem}#g{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}a,div.c{display:block;padding:14px;border-radius:8px;background:#222;color:#888;text-decoration:none}a{background:#3a2a6a;color:#fff}small{opacity:.6}</style>
+<h1>Devtober 2026</h1><div id="g"></div>
+<script>
+const WORDS=["Pulse Loop Bloom Drift Chaos Tiny Swarm Maze Gravity Fold Ripple Lost Tangle Bounce Shadow Tide Orbit Glitch Echo Fragile Signal Mirror Spark Hidden Melt Machine Haunted Grow Infinite Collapse Wake"];
+const DONE=["day-01-pulse"]; // ajoute ici les dossiers publiés
+g.innerHTML=WORDS.map((w,i)=>{const d=`day-${String(i+1).padStart(2,"0")}-${w.toLowerCase()}`;return DONE.includes(d)?`<a href="${d}/"><small>${i+1}</small><br>${w}</a>`:`<div class=c><small>${i+1}</small><br>${w}</div>`}).join("");
+</script>

@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>01 · Pulse</title>
+<style>html,body{margin:0;height:100%;background:#0b0b12;overflow:hidden}</style>
+<canvas id="c"></canvas>
+<script>
+const x=c.getContext("2d");let W,H;const r=()=>{W=c.width=innerWidth;H=c.height=innerHeight};onresize=r;r();
+(function f(t){x.fillStyle="#0b0b1230";x.fillRect(0,0,W,H);const b=Math.pow(Math.sin(t/300),8);
+for(let i=0;i<5;i++){x.beginPath();x.arc(W/2,H/2,40+b*80+i*30,0,7);x.strokeStyle=`hsla(${330+i*8},90%,60%,${1-i/5})`;x.lineWidth=3;x.stroke()}
+requestAnimationFrame(f)})(0);
+</script>
