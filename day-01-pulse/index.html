@@ -1,9 +1,701 @@
-<!doctype html><meta charset="utf-8"><title>01 · Pulse</title>
-<style>html,body{margin:0;height:100%;background:#0b0b12;overflow:hidden}</style>
-<canvas id="c"></canvas>
-<script>
-const x=c.getContext("2d");let W,H;const r=()=>{W=c.width=innerWidth;H=c.height=innerHeight};onresize=r;r();
-(function f(t){x.fillStyle="#0b0b1230";x.fillRect(0,0,W,H);const b=Math.pow(Math.sin(t/300),8);
-for(let i=0;i<5;i++){x.beginPath();x.arc(W/2,H/2,40+b*80+i*30,0,7);x.strokeStyle=`hsla(${330+i*8},90%,60%,${1-i/5})`;x.lineWidth=3;x.stroke()}
-requestAnimationFrame(f)})(0);
-</script>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>01 · Pulse — Devtober 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #f4f4f4;
+      --surface-hover: #ececec;
+      --line: #e1e1e1;
+      --line-strong: #c8c8c8;
+      --text: #1a1a1a;
+      --muted: #58595b;
+      --faint: #9a9a9a;
+      --accent: #eb0a1e;
+      --accent-dim: rgba(235, 10, 30, .10);
+      --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Geist", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .mono { font-family: "Geist Mono", ui-monospace, monospace; }
+
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      max-width: 1400px; margin: 0 auto;
+      padding: 20px clamp(16px, 4vw, 56px);
+      font-size: 13px;
+    }
+    .topbar a { color: var(--muted); text-decoration: none; transition: color .3s var(--ease); }
+    .topbar a:hover { color: var(--accent); }
+    .crumb { color: var(--faint); }
+    .crumb b { color: var(--text); font-weight: 500; }
+
+    .layout {
+      max-width: 1400px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      gap: clamp(24px, 4vw, 64px);
+      padding: 8px clamp(16px, 4vw, 56px) 56px;
+    }
+
+    /* ---------- Scène ---------- */
+    .stage {
+      position: relative;
+      min-height: min(78dvh, 720px);
+      border-radius: 20px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .stage-info {
+      position: absolute; left: 24px; bottom: 22px; right: 24px;
+      display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;
+      pointer-events: none;
+    }
+    .readout { font-size: clamp(36px, 5vw, 64px); font-weight: 600; letter-spacing: -.04em; line-height: 1; }
+    .readout small { font-size: .4em; color: var(--faint); font-weight: 500; letter-spacing: 0; margin-left: 4px; }
+    .readout-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .bpm { text-align: right; font-size: 13px; color: var(--muted); }
+    .bpm b { display: block; font-size: 22px; color: var(--text); font-weight: 500; }
+
+    .play {
+      position: absolute; top: 22px; left: 24px;
+      display: inline-flex; align-items: center; gap: 10px;
+      height: 44px; padding: 0 18px 0 14px;
+      border: 0; border-radius: 99px;
+      background: var(--accent); color: #fff;
+      font: 500 14px "Geist", sans-serif;
+      cursor: pointer;
+      transition: transform .3s var(--ease), background .3s var(--ease);
+    }
+    .play:hover { background: #c80818; }
+    .play:active { transform: scale(.97); }
+    .play svg { width: 16px; height: 16px; }
+    .hint { position: absolute; top: 34px; right: 24px; font-size: 12px; color: var(--faint); }
+
+    /* ---------- Panneau ---------- */
+    .panel { display: grid; gap: 28px; align-content: start; }
+
+    h1 { font-size: 28px; font-weight: 600; letter-spacing: -.03em; }
+    .sub { color: var(--muted); font-size: 15px; line-height: 1.55; margin-top: 6px; max-width: 46ch; }
+
+    .tabs {
+      display: grid; grid-template-columns: 1fr 1fr;
+      padding: 4px; gap: 4px;
+      background: var(--surface); border-radius: 12px;
+    }
+    .tab {
+      height: 38px; border: 0; border-radius: 9px;
+      background: transparent; color: var(--muted);
+      font: 500 14px "Geist", sans-serif; cursor: pointer;
+      transition: background .3s var(--ease), color .3s var(--ease);
+    }
+    .tab[aria-selected="true"] { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(26,26,26,.08); }
+
+    .section { display: grid; gap: 18px; }
+    .section-title {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 11px; color: var(--faint); letter-spacing: .08em; text-transform: uppercase;
+    }
+    .section-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    .field { display: grid; gap: 8px; }
+    .field-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+    .field-head output { color: var(--text); }
+
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 22px; background: transparent; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      height: 4px; border-radius: 4px;
+      background: linear-gradient(to right, var(--accent) var(--p, 50%), var(--line) var(--p, 50%));
+    }
+    input[type=range]::-moz-range-track { height: 4px; border-radius: 4px; background: var(--line); }
+    input[type=range]::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--accent); }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px;
+      border-radius: 50%; background: var(--bg); border: 2px solid var(--accent);
+      transition: transform .2s var(--ease);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent);
+    }
+    input[type=range]:active::-webkit-slider-thumb { transform: scale(1.2); }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      height: 34px; padding: 0 14px;
+      border: 1px solid var(--line); border-radius: 99px;
+      background: var(--bg); color: var(--muted);
+      font: 500 13px "Geist", sans-serif; cursor: pointer;
+      transition: border-color .3s var(--ease), color .3s var(--ease), background .3s var(--ease);
+    }
+    .chip:hover { border-color: var(--line-strong); color: var(--text); }
+    .chip:active { transform: scale(.97); }
+    .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .preset {
+      display: grid; gap: 2px; text-align: left;
+      padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--line); background: var(--bg);
+      font: 500 14px "Geist", sans-serif; color: var(--text); cursor: pointer;
+      transition: border-color .3s var(--ease), background .3s var(--ease);
+    }
+    .preset span { font: 400 11px "Geist Mono", monospace; color: var(--faint); }
+    .preset:hover { border-color: var(--line-strong); background: var(--surface); }
+    .preset:active { transform: scale(.98); }
+
+    .drop {
+      display: grid; place-items: center; gap: 6px;
+      min-height: 140px; padding: 20px;
+      border: 1.5px dashed var(--line-strong); border-radius: 14px;
+      text-align: center; color: var(--muted); font-size: 14px;
+      cursor: pointer;
+      transition: border-color .3s var(--ease), background .3s var(--ease);
+    }
+    .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-dim); }
+    .drop b { color: var(--text); font-weight: 500; }
+    .drop .mono { font-size: 11px; color: var(--faint); }
+    .drop svg { width: 22px; height: 22px; color: var(--accent); }
+    .file-name { font-size: 13px; color: var(--text); word-break: break-all; }
+    .error { font-size: 13px; color: var(--accent); }
+
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .stage { min-height: 56dvh; }
+      .presets { grid-template-columns: repeat(2, 1fr); }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar mono">
+    <a href="../">&larr; Devtober</a>
+    <span class="crumb">Jour 01 / <b>Pulse</b></span>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="Visualisation">
+      <canvas id="viz"></canvas>
+      <button class="play" id="play" type="button">
+        <svg viewBox="0 0 16 16" fill="currentColor" id="play-icon"><path d="M4 2.5v11l9-5.5z"/></svg>
+        <span id="play-label">Lancer</span>
+      </button>
+      <span class="hint mono">Espace pour lancer / couper</span>
+      <div class="stage-info">
+        <div>
+          <p class="readout-label mono" id="readout-label">Fréquence</p>
+          <p class="readout" id="readout">110<small>Hz</small></p>
+        </div>
+        <p class="bpm mono"><b id="bpm-readout">60</b>BPM</p>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div>
+        <h1>Pulse</h1>
+        <p class="sub">Un générateur de sons qui bat. Choisis une fréquence et une forme d'onde, ou dépose ton propre son, puis règle le battement par-dessus.</p>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-mode="synth">Générateur</button>
+        <button class="tab" role="tab" aria-selected="false" data-mode="file">Ton son</button>
+      </div>
+
+      <!-- Générateur -->
+      <div class="section" id="synth-panel">
+        <p class="section-title mono">Presets</p>
+        <div class="presets" id="presets"></div>
+
+        <p class="section-title mono">Oscillateur</p>
+        <div class="field">
+          <div class="field-head"><span>Fréquence</span><output class="mono" id="freq-out">110 Hz</output></div>
+          <input type="range" id="freq" min="0" max="1000" value="380">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Forme d'onde</span></div>
+          <div class="chips" id="waves">
+            <button class="chip" data-wave="sine" aria-pressed="true">Sinus</button>
+            <button class="chip" data-wave="triangle" aria-pressed="false">Triangle</button>
+            <button class="chip" data-wave="square" aria-pressed="false">Carré</button>
+            <button class="chip" data-wave="sawtooth" aria-pressed="false">Dent de scie</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Deuxième voix</span></div>
+          <div class="chips" id="harmonics">
+            <button class="chip" data-ratio="0" aria-pressed="true">Aucune</button>
+            <button class="chip" data-ratio="0.5" aria-pressed="false">Octave -</button>
+            <button class="chip" data-ratio="1.5" aria-pressed="false">Quinte</button>
+            <button class="chip" data-ratio="2" aria-pressed="false">Octave +</button>
+            <button class="chip" data-ratio="1.01" aria-pressed="false">Battement</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fichier perso -->
+      <div class="section" id="file-panel" hidden>
+        <p class="section-title mono">Ton son</p>
+        <label class="drop" id="drop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 15V4m0 0L8 8m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg>
+          <span><b>Dépose un fichier audio</b> ou clique pour choisir</span>
+          <span class="mono">mp3, wav, ogg, m4a</span>
+          <input type="file" id="file" accept="audio/*" hidden>
+        </label>
+        <p class="file-name mono" id="file-name" hidden></p>
+        <p class="error" id="file-error" hidden></p>
+        <div class="field">
+          <div class="field-head"><span>Vitesse / hauteur</span><output class="mono" id="rate-out">1.00×</output></div>
+          <input type="range" id="rate" min="25" max="200" value="100">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Sens de lecture</span></div>
+          <div class="chips" id="direction">
+            <button class="chip" data-dir="1" aria-pressed="true">Normal</button>
+            <button class="chip" data-dir="-1" aria-pressed="false">Inversé</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commun -->
+      <div class="section">
+        <p class="section-title mono">Battement</p>
+        <div class="field">
+          <div class="field-head"><span>Tempo</span><output class="mono" id="bpm-out">60 BPM</output></div>
+          <input type="range" id="bpm" min="20" max="240" value="60">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Intensité</span><output class="mono" id="depth-out">80 %</output></div>
+          <input type="range" id="depth" min="0" max="100" value="80">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Forme du battement</span></div>
+          <div class="chips" id="shapes">
+            <button class="chip" data-shape="heart" aria-pressed="true">Cœur</button>
+            <button class="chip" data-shape="tick" aria-pressed="false">Impulsion</button>
+            <button class="chip" data-shape="wave" aria-pressed="false">Vague</button>
+            <button class="chip" data-shape="gate" aria-pressed="false">Hachoir</button>
+          </div>
+        </div>
+
+        <p class="section-title mono">Filtre et sortie</p>
+        <div class="field">
+          <div class="field-head"><span>Filtre passe-bas</span><output class="mono" id="cutoff-out">20000 Hz</output></div>
+          <input type="range" id="cutoff" min="0" max="1000" value="1000">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Volume</span><output class="mono" id="vol-out">50 %</output></div>
+          <input type="range" id="vol" min="0" max="100" value="50">
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    // ---------- État ----------
+    const state = {
+      mode: "synth",
+      playing: false,
+      freq: 110,
+      wave: "sine",
+      ratio: 0,
+      bpm: 60,
+      depth: 0.8,
+      shape: "heart",
+      cutoff: 20000,
+      vol: 0.5,
+      rate: 1,
+      dir: 1,
+      buffer: null,
+      reversed: null
+    };
+
+    // Échelle logarithmique 20 Hz – 20 kHz pour les sliders de fréquence
+    const logScale = (v, min, max) => Math.round(min * Math.pow(max / min, v / 1000));
+    const invLog = (f, min, max) => Math.round(1000 * Math.log(f / min) / Math.log(max / min));
+
+    // ---------- Audio ----------
+    let ctx, pulseGain, filter, master, analyser;
+    let sources = [];
+    let schedulerId = null, nextBeat = 0;
+
+    function initAudio() {
+      if (ctx) return;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      pulseGain = ctx.createGain();
+      filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      master = ctx.createGain();
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      pulseGain.connect(filter).connect(master).connect(analyser).connect(ctx.destination);
+      applyParams();
+    }
+
+    function applyParams() {
+      if (!ctx) return;
+      const t = ctx.currentTime;
+      filter.frequency.setTargetAtTime(state.cutoff, t, 0.02);
+      master.gain.setTargetAtTime(state.vol * 0.6, t, 0.02);
+      for (const s of sources) {
+        if (s.kind === "osc") s.node.frequency.setTargetAtTime(state.freq * s.ratio, t, 0.02);
+        if (s.kind === "file") s.node.playbackRate.setTargetAtTime(state.rate, t, 0.02);
+      }
+    }
+
+    function startSources() {
+      stopSources();
+      if (state.mode === "synth") {
+        const voices = [[1, 1]];
+        if (state.ratio) voices.push([state.ratio, 0.5]);
+        for (const [ratio, level] of voices) {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = state.wave;
+          osc.frequency.value = state.freq * ratio;
+          // Les ondes carrées et en dent de scie sont plus fortes : on compense
+          g.gain.value = level * (state.wave === "square" || state.wave === "sawtooth" ? 0.35 : 0.8);
+          osc.connect(g).connect(pulseGain);
+          osc.start();
+          sources.push({ kind: "osc", node: osc, gain: g, ratio });
+        }
+      } else if (state.buffer) {
+        const src = ctx.createBufferSource();
+        src.buffer = state.dir === 1 ? state.buffer : state.reversed;
+        src.loop = true;
+        src.playbackRate.value = state.rate;
+        src.connect(pulseGain);
+        src.start();
+        sources.push({ kind: "file", node: src });
+      }
+    }
+
+    function stopSources() {
+      for (const s of sources) {
+        try { s.node.stop(); } catch (e) {}
+        s.node.disconnect();
+      }
+      sources = [];
+    }
+
+    // ---------- Battement : enveloppes planifiées en avance ----------
+    // Chaque forme renvoie une liste [temps relatif au battement (0–1), niveau (0–1)]
+    const SHAPES = {
+      heart: [[0, 0], [0.04, 1], [0.14, 0.15], [0.22, 0.75], [0.34, 0], [1, 0]],
+      tick:  [[0, 0], [0.02, 1], [0.25, 0], [1, 0]],
+      wave:  [[0, 0], [0.5, 1], [1, 0]],
+      gate:  [[0, 1], [0.48, 1], [0.5, 0], [0.98, 0], [1, 1]]
+    };
+
+    function scheduleBeat(t0) {
+      const period = 60 / state.bpm;
+      const floor = 1 - state.depth;
+      const g = pulseGain.gain;
+      for (const [x, y] of SHAPES[state.shape]) {
+        g.linearRampToValueAtTime(floor + state.depth * y, t0 + x * period);
+      }
+      beatTimes.push(t0);
+      if (beatTimes.length > 8) beatTimes.shift();
+    }
+
+    function scheduler() {
+      while (nextBeat < ctx.currentTime + 0.15) {
+        scheduleBeat(nextBeat);
+        nextBeat += 60 / state.bpm;
+      }
+    }
+
+    function restartPulse() {
+      if (!state.playing) return;
+      const t = ctx.currentTime;
+      pulseGain.gain.cancelScheduledValues(t);
+      pulseGain.gain.setValueAtTime(pulseGain.gain.value, t);
+      nextBeat = t + 0.02;
+    }
+
+    // ---------- Lecture ----------
+    async function play() {
+      initAudio();
+      if (ctx.state === "suspended") await ctx.resume();
+      if (state.mode === "file" && !state.buffer) {
+        showError("Dépose d'abord un fichier audio.");
+        return;
+      }
+      state.playing = true;
+      pulseGain.gain.cancelScheduledValues(ctx.currentTime);
+      pulseGain.gain.setValueAtTime(0, ctx.currentTime);
+      nextBeat = ctx.currentTime + 0.05;
+      startSources();
+      scheduler();
+      schedulerId = setInterval(scheduler, 25);
+      updatePlayButton();
+    }
+
+    function stop() {
+      state.playing = false;
+      clearInterval(schedulerId);
+      if (ctx) {
+        const t = ctx.currentTime;
+        pulseGain.gain.cancelScheduledValues(t);
+        pulseGain.gain.setTargetAtTime(0, t, 0.03);
+        setTimeout(() => { if (!state.playing) stopSources(); }, 150);
+      }
+      updatePlayButton();
+    }
+
+    const toggle = () => state.playing ? stop() : play();
+
+    function updatePlayButton() {
+      $("play-label").textContent = state.playing ? "Couper" : "Lancer";
+      $("play-icon").innerHTML = state.playing
+        ? '<rect x="3.5" y="3" width="3" height="10" rx=".5"/><rect x="9.5" y="3" width="3" height="10" rx=".5"/>'
+        : '<path d="M4 2.5v11l9-5.5z"/>';
+    }
+
+    // ---------- Interface ----------
+    function setRangeFill(input) {
+      const p = (input.value - input.min) / (input.max - input.min) * 100;
+      input.style.setProperty("--p", p + "%");
+    }
+
+    function bindRange(id, onInput) {
+      const el = $(id);
+      const handler = () => { onInput(+el.value); setRangeFill(el); applyParams(); updateReadout(); };
+      el.addEventListener("input", handler);
+      handler();
+    }
+
+    function bindChips(groupId, attr, onPick) {
+      const group = $(groupId);
+      group.addEventListener("click", e => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        group.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === chip));
+        onPick(chip.dataset[attr]);
+      });
+    }
+
+    function selectChip(groupId, attr, value) {
+      $(groupId).querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset[attr] === String(value)));
+    }
+
+    const fmtHz = f => f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + " kHz" : f + " Hz";
+
+    bindRange("freq", v => { state.freq = logScale(v, 20, 4000); $("freq-out").textContent = fmtHz(state.freq); });
+    bindRange("cutoff", v => { state.cutoff = logScale(v, 60, 20000); $("cutoff-out").textContent = fmtHz(state.cutoff); });
+    bindRange("bpm", v => { state.bpm = v; $("bpm-out").textContent = v + " BPM"; $("bpm-readout").textContent = v; });
+    bindRange("depth", v => { state.depth = v / 100; $("depth-out").textContent = v + " %"; });
+    bindRange("vol", v => { state.vol = v / 100; $("vol-out").textContent = v + " %"; });
+    bindRange("rate", v => { state.rate = v / 100; $("rate-out").textContent = state.rate.toFixed(2) + "×"; });
+
+    // Les changements de forme ou de voix demandent de recréer les oscillateurs
+    const rebuild = () => { if (state.playing) startSources(); };
+    bindChips("waves", "wave", v => { state.wave = v; rebuild(); });
+    bindChips("harmonics", "ratio", v => { state.ratio = +v; rebuild(); });
+    bindChips("shapes", "shape", v => { state.shape = v; restartPulse(); });
+    bindChips("direction", "dir", v => { state.dir = +v; rebuild(); });
+    $("bpm").addEventListener("change", restartPulse);
+
+    function updateReadout() {
+      if (state.mode === "synth") {
+        $("readout-label").textContent = "Fréquence";
+        $("readout").innerHTML = state.freq >= 1000
+          ? `${(state.freq / 1000).toFixed(1)}<small>kHz</small>`
+          : `${state.freq}<small>Hz</small>`;
+      } else {
+        $("readout-label").textContent = "Vitesse";
+        $("readout").innerHTML = `${state.rate.toFixed(2)}<small>×</small>`;
+      }
+    }
+
+    // Onglets
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t === tab));
+      state.mode = tab.dataset.mode;
+      $("synth-panel").hidden = state.mode !== "synth";
+      $("file-panel").hidden = state.mode !== "file";
+      updateReadout();
+      if (state.playing) {
+        if (state.mode === "file" && !state.buffer) stop();
+        else startSources();
+      }
+    }));
+
+    // Presets
+    const PRESETS = [
+      { name: "Cœur",    freq: 55,   wave: "sine",     ratio: 0.5,  bpm: 62,  shape: "heart", depth: 100, cutoff: 900 },
+      { name: "Sonar",   freq: 880,  wave: "sine",     ratio: 0,    bpm: 30,  shape: "tick",  depth: 100, cutoff: 20000 },
+      { name: "Alarme",  freq: 660,  wave: "square",   ratio: 1.5,  bpm: 220, shape: "gate",  depth: 100, cutoff: 6000 },
+      { name: "Basse",   freq: 45,   wave: "sawtooth", ratio: 2,    bpm: 120, shape: "tick",  depth: 85,  cutoff: 400 },
+      { name: "Respire", freq: 220,  wave: "triangle", ratio: 1.01, bpm: 24,  shape: "wave",  depth: 90,  cutoff: 3000 },
+      { name: "Radio",   freq: 1200, wave: "square",   ratio: 0,    bpm: 180, shape: "tick",  depth: 70,  cutoff: 2500 }
+    ];
+
+    $("presets").innerHTML = PRESETS.map((p, i) =>
+      `<button class="preset" data-i="${i}">${p.name}<span>${fmtHz(p.freq)} · ${p.bpm} BPM</span></button>`
+    ).join("");
+
+    $("presets").addEventListener("click", e => {
+      const btn = e.target.closest(".preset");
+      if (!btn) return;
+      const p = PRESETS[btn.dataset.i];
+      Object.assign(state, { wave: p.wave, ratio: p.ratio, shape: p.shape });
+      selectChip("waves", "wave", p.wave);
+      selectChip("harmonics", "ratio", p.ratio);
+      selectChip("shapes", "shape", p.shape);
+      const set = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event("input")); };
+      set("freq", invLog(p.freq, 20, 4000));
+      set("bpm", p.bpm);
+      set("depth", p.depth);
+      set("cutoff", invLog(p.cutoff, 60, 20000));
+      if (state.playing) { startSources(); restartPulse(); } else play();
+    });
+
+    // Fichier perso : glisser-déposer ou sélection
+    function showError(msg) {
+      $("file-error").textContent = msg;
+      $("file-error").hidden = !msg;
+    }
+
+    async function loadFile(file) {
+      if (!file) return;
+      showError("");
+      initAudio();
+      try {
+        const data = await file.arrayBuffer();
+        const buffer = await ctx.decodeAudioData(data);
+        // Copie inversée pour la lecture à l'envers
+        const rev = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+        for (let c = 0; c < buffer.numberOfChannels; c++) {
+          rev.getChannelData(c).set(buffer.getChannelData(c).slice().reverse());
+        }
+        state.buffer = buffer;
+        state.reversed = rev;
+        $("file-name").textContent = `${file.name} · ${buffer.duration.toFixed(1)} s`;
+        $("file-name").hidden = false;
+        if (state.playing) startSources(); else play();
+      } catch (err) {
+        showError("Impossible de lire ce fichier. Essaie un mp3 ou un wav.");
+      }
+    }
+
+    const drop = $("drop");
+    $("file").addEventListener("change", e => loadFile(e.target.files[0]));
+    ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
+    // Déposer un fichier n'importe où sur la page bascule sur « Ton son »
+    window.addEventListener("dragover", e => e.preventDefault());
+    window.addEventListener("drop", e => {
+      e.preventDefault();
+      if (e.target.closest("#drop")) return;
+      document.querySelector('[data-mode="file"]').click();
+      loadFile(e.dataTransfer.files[0]);
+    });
+
+    $("play").addEventListener("click", toggle);
+    window.addEventListener("keydown", e => {
+      if (e.code === "Space" && !e.target.closest("input, button")) { e.preventDefault(); toggle(); }
+    });
+
+    // ---------- Visualisation ----------
+    const canvas = $("viz");
+    const g2d = canvas.getContext("2d");
+    const beatTimes = [];
+    let W, H, dpr, timeData, smooth = 0;
+
+    function resize() {
+      dpr = Math.min(devicePixelRatio || 1, 2);
+      W = canvas.clientWidth; H = canvas.clientHeight;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      g2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    new ResizeObserver(resize).observe(canvas);
+    resize();
+
+    const css = getComputedStyle(document.documentElement);
+    const ACCENT = css.getPropertyValue("--accent").trim();
+    const LINE = css.getPropertyValue("--line-strong").trim();
+
+    function draw() {
+      g2d.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H / 2 - 20;
+      const base = Math.min(W, H) * 0.2;
+
+      // Niveau sonore actuel (RMS)
+      let level = 0;
+      if (analyser && state.playing) {
+        timeData = timeData || new Float32Array(analyser.fftSize);
+        analyser.getFloatTimeDomainData(timeData);
+        let sum = 0;
+        for (let i = 0; i < timeData.length; i++) sum += timeData[i] * timeData[i];
+        level = Math.min(1, Math.sqrt(sum / timeData.length) * 4);
+      }
+      smooth += (level - smooth) * 0.25;
+
+      // Ondes qui s'éloignent à chaque battement
+      if (ctx && state.playing) {
+        const period = 60 / state.bpm;
+        for (const t of beatTimes) {
+          const age = (ctx.currentTime - t) / (period * 2.5);
+          if (age < 0 || age > 1) continue;
+          g2d.beginPath();
+          g2d.arc(cx, cy, base + age * Math.min(W, H) * 0.35, 0, Math.PI * 2);
+          g2d.strokeStyle = ACCENT;
+          g2d.globalAlpha = (1 - age) * 0.35;
+          g2d.lineWidth = 1.5;
+          g2d.stroke();
+        }
+        g2d.globalAlpha = 1;
+      }
+
+      // Anneau de forme d'onde
+      const r = base * (1 + smooth * 0.5);
+      const N = 256;
+      g2d.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+        const sample = timeData && state.playing ? timeData[Math.floor((i % N) / N * 1024)] : 0;
+        const rr = r + sample * base * 0.6;
+        const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+        i ? g2d.lineTo(x, y) : g2d.moveTo(x, y);
+      }
+      g2d.closePath();
+      g2d.fillStyle = state.playing ? `rgba(235, 10, 30, ${0.06 + smooth * 0.18})` : "rgba(26,26,26,.03)";
+      g2d.fill();
+      g2d.strokeStyle = state.playing ? ACCENT : LINE;
+      g2d.lineWidth = 2;
+      g2d.stroke();
+
+      // Point central
+      g2d.beginPath();
+      g2d.arc(cx, cy, 5 + smooth * 10, 0, Math.PI * 2);
+      g2d.fillStyle = state.playing ? ACCENT : LINE;
+      g2d.fill();
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>
