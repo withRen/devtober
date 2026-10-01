@@ -10,9 +10,39 @@ Comme l'Inktober, mais pour les devs. Chaque jour, un mot sert d'inspiration pou
 
 ## Les 31 mots
 
-| Jour | Mot | Création |
-| :--: | --- | --- |
-| 01 | **Pulse Loop Bloom Drift Chaos Tiny Swarm Maze Gravity Fold Ripple Lost Tangle Bounce Shadow Tide Orbit Glitch Echo Fragile Signal Mirror Spark Hidden Melt Machine Haunted Grow Infinite Collapse Wake** | — |
+| Jour | Mot |
+| :--: | --- |
+| 01 | Pulse |
+| 02 | Loop |
+| 03 | Bloom |
+| 04 | Drift |
+| 05 | Chaos |
+| 06 | Tiny |
+| 07 | Swarm |
+| 08 | Maze |
+| 09 | Gravity |
+| 10 | Fold |
+| 11 | Ripple |
+| 12 | Lost |
+| 13 | Tangle |
+| 14 | Bounce |
+| 15 | Shadow |
+| 16 | Tide |
+| 17 | Orbit |
+| 18 | Glitch |
+| 19 | Echo |
+| 20 | Fragile |
+| 21 | Signal |
+| 22 | Mirror |
+| 23 | Spark |
+| 24 | Hidden |
+| 25 | Melt |
+| 26 | Machine |
+| 27 | Haunted |
+| 28 | Grow |
+| 29 | Infinite |
+| 30 | Collapse |
+| 31 | Wake |
 
 ## Organisation
 
