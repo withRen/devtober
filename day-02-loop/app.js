@@ -4,6 +4,8 @@
    en ASCII ou en vecteurs. Export PNG à toute résolution, et SVG.
    ========================================================= */
 
+import { createNodeEditor, defaultGraph } from "./nodes.js";
+
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
 
@@ -19,8 +21,12 @@ const DEFAULTS = {
   zoom: 1, cx: 0, cy: 0, angle: 0,
   tilt: 0.45, orbits: 0, chroma: 0, grain: 0,
   glyphSize: 20, glyphs: "0123456789", flicker: 0.25,
-  seed: 7, format: "ecran", freehand: null, preset: "galaxie"
+  seed: 7, format: "ecran", freehand: null, preset: "galaxie", graph: null
 };
+const SECTION_TITLES = ["Forme", "Boucles", "Mouvement", "Rendu", "Effets", "Couleurs", "Cadrage"];
+
+// Graphe de nœuds d'un préréglage (les modulateurs sont placés sous le pipeline)
+const presetGraph = (nodes, links) => ({ ...defaultGraph(SECTION_TITLES), nodes, links, next: nodes.length + 1 });
 
 // Préréglages : chacun part des réglages par défaut et en change une partie
 const PRESETS = {
@@ -51,6 +57,33 @@ const PRESETS = {
     name: "Atome", shape: "cercle", rings: 3, inner: 0.85, ringTwist: 1.05, count: 60000, filaments: 6, width: 0.02,
     dispersion: 0.05, turb: 0.02, orbits: 4, tilt: 0.9, palette: "sang", halo: 0.9, chroma: 0.35, exposure: 0.6, trail: 0.8
   },
+  respiration: {
+    name: "Respiration", count: 100000, halo: 0.7, chroma: 0.15,
+    graph: presetGraph([
+      { id: "n1", type: "osc", x: 900, y: 400, p: { onde: "sinus", frequence: 0.12, amplitude: 0.45, centre: 0.75, phase: 0 } },
+      { id: "n2", type: "osc", x: 1180, y: 400, p: { onde: "sinus", frequence: 0.12, amplitude: 0.1, centre: 1, phase: 0.25 } },
+      { id: "n3", type: "bruit", x: 500, y: 400, p: { vitesse: 0.15, amplitude: 0.12, centre: 0.14, graine: 4 } }
+    ], [
+      { fn: "n1", fo: "valeur", tn: "sec:Effets", ti: "halo" },
+      { fn: "n2", fo: "valeur", tn: "sec:Cadrage", ti: "zoom" },
+      { fn: "n3", fo: "valeur", tn: "sec:Mouvement", ti: "turb" }
+    ])
+  },
+  interactif: {
+    name: "Interactif", shape: "sphere", count: 110000, filaments: 80, dispersion: 0.6, width: 0.4, dust: 0.01,
+    flow: 0.01, rot: 0.02, tilt: 0.4, turb: 0.13, turbScale: 2.2, evolve: 0.25, trail: 0.5,
+    exposure: 1, halo: 0.7, haloSize: 1.2, chroma: 0.4, grain: 0.25, orbits: 2, palette: "glacier",
+    graph: presetGraph([
+      { id: "n1", type: "souris", x: 0, y: 400, p: { lissage: 0.9 } },
+      { id: "n2", type: "plage", x: 260, y: 400, p: { valeur: 0, deMin: -1, deMax: 1, versMin: 0, versMax: 0.45, borner: "oui" } },
+      { id: "n3", type: "math", x: 260, y: 600, p: { op: "multiplication", a: 0, b: 1.2 } }
+    ], [
+      { fn: "n1", fo: "x", tn: "n2", ti: "valeur" },
+      { fn: "n2", fo: "valeur", tn: "sec:Mouvement", ti: "turb" },
+      { fn: "n1", fo: "y", tn: "n3", ti: "a" },
+      { fn: "n3", fo: "valeur", tn: "sec:Forme", ti: "tilt" }
+    ])
+  },
   papier: {
     name: "Papier", shape: "etoile", starN: 6, starDepth: 0.35, rings: 12, inner: 0.1, ringTwist: 0.08, mode: "vecteurs",
     lines: 260, lineAlpha: 0.35, lineWidth: 0.6, palette: "papier", halo: 0.25, turb: 0.03
@@ -58,8 +91,9 @@ const PRESETS = {
 };
 
 function presetSettings(key) {
-  const p = { ...DEFAULTS, ...PRESETS[key], preset: key };
+  const p = { ...DEFAULTS, ...JSON.parse(JSON.stringify(PRESETS[key])), preset: key };
   delete p.name;
+  if (!p.graph) p.graph = defaultGraph(SECTION_TITLES);
   const [bg, c1, c2] = PALETTES[p.palette] || PALETTES.galaxie;
   return { ...p, bg, c1, c2 };
 }
@@ -694,13 +728,53 @@ function resize() {
   $("frame-size").textContent = `${fw} × ${fh}`;
 }
 
+// Les nœuds remplacent temporairement certains réglages le temps d'une image
+const CURVE_KEYS = ["petals", "lissA", "lissB", "starN", "starDepth"];
+let editor = null;
+const lastApplied = {};
+function controlOf(key) {
+  for (const sec of CONTROLS) for (const c of sec.items) if (c.key === key) return c;
+  return null;
+}
+function withOverrides(time, fn) {
+  const ov = editor ? editor.evaluate(time) : null;
+  if (!ov || !Object.keys(ov).length) { fn(); return ov; }
+  const saved = {};
+  let curveDirty = false, lutDirty = false;
+  for (const [key, raw] of Object.entries(ov)) {
+    const c = controlOf(key);
+    if (!c || c.rebuild) continue;
+    let v = Math.max(c.min, Math.min(c.max, raw));
+    if (c.step >= 1) v = Math.round(v);
+    saved[key] = S[key];
+    S[key] = v;
+    if (lastApplied[key] !== v) {
+      if (CURVE_KEYS.includes(key)) curveDirty = true;
+      if (c.lut) lutDirty = true;
+      lastApplied[key] = v;
+    }
+  }
+  if (curveDirty) buildCurve();
+  if (lutDirty) buildLut();
+  try { fn(); } finally { Object.assign(S, saved); }
+  return ov;
+}
+
 let last = performance.now(), msAvg = 16;
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (!paused) t += dt;
   const t0 = performance.now();
+  const ov = withOverrides(t, () => renderFrame());
+  if (editor) editor.tick(ov);
 
+  msAvg = msAvg * 0.9 + (performance.now() - t0) * 0.1;
+  if (frameCount++ % 15 === 0) $("perf").textContent = `${msAvg.toFixed(1)} ms`;
+  requestAnimationFrame(frame);
+}
+
+function renderFrame() {
   if (S.mode === "vecteurs") {
     drawVectors(ctx, W, H, t);
   } else if (S.mode === "glyphes") {
@@ -717,10 +791,6 @@ function frame(now) {
   }
   applyHalo(ctx, canvas, W, H);
   postFx(ctx, W, H);
-
-  msAvg = msAvg * 0.9 + (performance.now() - t0) * 0.1;
-  if (frameCount++ % 15 === 0) $("perf").textContent = `${msAvg.toFixed(1)} ms`;
-  requestAnimationFrame(frame);
 }
 let frameCount = 0;
 
@@ -745,6 +815,21 @@ async function exportPNG() {
     const c = document.createElement("canvas");
     c.width = w; c.height = h;
     const g = c.getContext("2d");
+    let blobDone;
+    withOverrides(t, () => { blobDone = renderStill(c, g, w, h); });
+    const blob = await blobDone;
+    download(blob, `loop-${S.shape}-${w}x${h}.png`);
+    toast(`PNG ${w} × ${h} exporté`);
+  } catch (err) {
+    toast("L'export a échoué : résolution trop grande pour ce navigateur ?");
+  } finally {
+    btn.disabled = false;
+    btn.querySelector("span").textContent = "PNG";
+  }
+}
+
+function renderStill(c, g, w, h) {
+  {
     // Les caractères et les traits gardent la même taille relative que dans l'aperçu
     const ratio = w / canvas.clientWidth;
     if (S.mode === "vecteurs") {
@@ -767,18 +852,14 @@ async function exportPNG() {
     }
     applyHalo(g, c, w, h);
     postFx(g, w, h);
-    const blob = await new Promise(r => c.toBlob(r, "image/png"));
-    download(blob, `loop-${S.shape}-${w}x${h}.png`);
-    toast(`PNG ${w} × ${h} exporté`);
-  } catch (err) {
-    toast("L'export a échoué : résolution trop grande pour ce navigateur ?");
-  } finally {
-    btn.disabled = false;
-    btn.querySelector("span").textContent = "PNG";
+    return new Promise(r => c.toBlob(r, "image/png"));
   }
 }
 
 function exportSVG() {
+  withOverrides(t, exportSVGNow);
+}
+function exportSVGNow() {
   const [w, h] = formatSize(S.format);
   const { unit, ox, oy, ca, sa } = transform(w, h);
   const [r, gg, b] = hex(S.c2), [r1, g1, b1] = hex(S.c1);
@@ -1012,6 +1093,7 @@ function changed({ rebuild, curve: rc, lut: rl } = {}) {
   if (paused) setTimeout(() => primeBuffer(buf, W, H, t), 70);
   syncPanel();
   saveSettings();
+  if ((rebuild || rc || rl) && editor) editor.refresh();
 }
 
 /* ---------- Dessin libre ---------- */
@@ -1135,6 +1217,35 @@ $("reset").addEventListener("click", () => {
 });
 $("toggle-panel").addEventListener("click", () => togglePanel());
 
+function toggleNodes(force) {
+  const el = $("nodes");
+  const open = force ?? el.hidden;
+  el.hidden = !open;
+  $("toggle-nodes").setAttribute("aria-pressed", open);
+  if (open) { editor.render(); if (!S.graph || !S.graph.fitted) { requestAnimationFrame(() => { editor.fit(); S.graph.fitted = true; }); } }
+  requestAnimationFrame(() => { resize(); primeBuffer(buf, W, H, t); });
+}
+$("toggle-nodes").addEventListener("click", () => toggleNodes());
+
+// Redimensionner le tiroir des nœuds
+$("nodes").addEventListener("pointerdown", e => {
+  if (!e.target.classList.contains("ne-resize")) return;
+  const wrap = document.querySelector(".stage-wrap");
+  const y0 = e.clientY, h0 = $("nodes").offsetHeight;
+  e.target.setPointerCapture(e.pointerId);
+  const move = ev => wrap.style.setProperty("--ne-h", Math.max(180, Math.min(wrap.offsetHeight - 160, h0 - (ev.clientY - y0))) + "px");
+  const up = () => { e.target.removeEventListener("pointermove", move); e.target.removeEventListener("pointerup", up); resize(); primeBuffer(buf, W, H, t); };
+  e.target.addEventListener("pointermove", move);
+  e.target.addEventListener("pointerup", up);
+});
+
+// Position de la souris sur l'aperçu, pour le nœud Souris (de -1 à 1)
+let mouse = [0, 0];
+canvas.addEventListener("pointermove", e => {
+  const r = canvas.getBoundingClientRect();
+  mouse = [(e.clientX - r.left) / r.width * 2 - 1, (e.clientY - r.top) / r.height * 2 - 1];
+});
+
 function togglePause() {
   paused = !paused;
   if (paused) primeBuffer(buf, W, H, t);
@@ -1152,6 +1263,7 @@ addEventListener("keydown", e => {
   if (e.code === "Space") { e.preventDefault(); togglePause(); }
   else if (e.key === "h" || e.key === "H") togglePanel();
   else if (e.key === "r" || e.key === "R") randomize();
+  else if (e.key === "n" || e.key === "N") toggleNodes();
 });
 
 let resizeT = 0;
@@ -1190,10 +1302,24 @@ buildCurve();
 buildLut();
 buildParticles();
 buildPanel();
+editor = createNodeEditor({
+  root: $("nodes"),
+  S: () => S,
+  sections: () => CONTROLS.filter(c => SECTION_TITLES.includes(c.title)),
+  control: key => controlOf(key),
+  set: (key, v, c) => set(key, v, { rebuild: c && c.rebuild, curve: CURVE_KEYS.includes(key) || key === "shape", lut: !!(c && c.lut) || key === "charset" || key === "glyphs" }),
+  save: saveSettings,
+  graphChanged: () => { for (const k in lastApplied) delete lastApplied[k]; S.preset = ""; changed({ curve: true, lut: true }); },
+  toast,
+  noise: (x, y) => fbm(x, y) * 0.75,
+  mouse: () => mouse,
+  canvas: () => canvas,
+  formatLabel: () => `${FORMATS[S.format][0]}, ${formatSize(S.format).join(" × ")}`
+});
 resize();
 primeBuffer(buf, W, H, t);
 requestAnimationFrame(frame);
 setTimeout(renderThumbs, 400);
 
 // Pour les tests automatisés
-window.__wall = { get S() { return S; }, set, changed, exportSVG, exportPNG, randomize, primeBuffer, get W() { return W; }, get H() { return H; }, get ms() { return msAvg; }, startDrawing, stopDrawing, get t() { return t; } };
+window.__wall = { get editor() { return editor; }, toggleNodes, get S() { return S; }, set, changed, exportSVG, exportPNG, randomize, primeBuffer, get W() { return W; }, get H() { return H; }, get ms() { return msAvg; }, startDrawing, stopDrawing, get t() { return t; } };

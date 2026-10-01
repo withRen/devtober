@@ -6,7 +6,8 @@ Un générateur de fonds d'écran : des milliers de particules qui tournent en b
 
 ## Ce qu'on peut faire
 
-- **8 préréglages** avec miniatures : Galaxie, Orbite (sphère granuleuse, anneaux en orbite, aberration chromatique), Sphère de chiffres, Fleur néon, Code, Infini, Atome, Papier.
+- **10 préréglages** avec miniatures : Galaxie, Orbite (sphère granuleuse, anneaux en orbite, aberration chromatique), Sphère de chiffres, Fleur néon, Code, Infini, Atome, Respiration et Interactif (animés par des nœuds), Papier.
+- **Éditeur de nœuds** (bouton « Nœuds » ou `N`), à la Blender ou DaVinci Fusion : le pipeline Forme, Boucles, Mouvement, Rendu, Effets, Couleurs, Cadrage, Sortie, avec chaque paramètre en entrée. On y branche des nœuds **Temps, Oscillateur, Bruit, Souris, Valeur, Math** et **Plage**, qui s'enchaînent entre eux. Glisser une sortie vers un paramètre pour l'animer, `Maj+A` ou clic droit pour ajouter, `Suppr` pour effacer, molette pour zoomer. Les champs se règlent en glissant, comme dans Blender, ou au clavier en cliquant.
 - **9 formes** : Galaxie (bras spiraux), Sphère (en 3D, avec perspective), Cercle, Infini, Fleur, Lissajous, Cœur, Étoile, et **Dessin libre** : tu traces une boucle à la souris ou au doigt, les particules la suivent.
 - **Boucles** : jusqu'à 16 boucles imbriquées, décalées et tournant dans des sens alternés, de 5 000 à 200 000 particules, regroupées en filaments, plus de la poussière d'étoiles.
 - **Mouvement** : vitesse le long de la boucle, rotation, turbulence, traînées.
@@ -32,6 +33,8 @@ Un générateur de fonds d'écran : des milliers de particules qui tournent en b
 - Aucune librairie.
 
 Performances mesurées sur un M1 Pro, aperçu de 1,6 mégapixel : environ 10 ms par image à 70 000 particules, 3 ms en vecteurs. L'export PNG en 4K prend moins d'une seconde.
+
+- **Nœuds** : le graphe est évalué à chaque image, en partant des paramètres branchés et en remontant les fils (avec mémoïsation, et refus des connexions qui créeraient une boucle). Ses valeurs remplacent les réglages le temps du rendu, puis les réglages d'origine sont restaurés. Les paramètres qui reconstruisent les particules (nombre, filaments, dispersion…) restent réglables mais pas animables, signalés par un cadenas. L'export et le lien de partage incluent le graphe.
 
 ## Le lien avec le mot
 

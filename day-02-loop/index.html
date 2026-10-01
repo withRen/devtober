@@ -68,7 +68,88 @@
     body.panel-hidden .work { grid-template-columns: 1fr 0; }
     body.panel-hidden .panel { visibility: hidden; }
 
-    .stage-wrap { display: grid; grid-template-rows: 1fr auto; min-width: 0; min-height: 0; }
+    .stage-wrap { --ne-h: 42vh; display: grid; grid-template-rows: minmax(160px, 1fr) auto auto; min-width: 0; min-height: 0; }
+    #toggle-nodes[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+    /* ---------- Éditeur de nœuds ---------- */
+    .nodes { position: relative; height: var(--ne-h); min-height: 180px; display: grid; grid-template-rows: auto 1fr; border-top: 1px solid var(--line); background: #0d0d0f; }
+    .ne-resize { position: absolute; top: -4px; left: 0; right: 0; height: 8px; cursor: ns-resize; z-index: 3; }
+    .ne-bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); overflow-x: auto; }
+    .ne-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; margin-right: 8px; white-space: nowrap; }
+    .ne-hint { margin-left: 8px; font-size: 12px; color: var(--faint); white-space: nowrap; }
+    .ne-view {
+      position: relative; overflow: hidden; cursor: grab; touch-action: none;
+      background-image: radial-gradient(circle, #ffffff12 1px, transparent 1.3px);
+    }
+    .ne-view:active { cursor: grabbing; }
+    .ne-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .ne-wires { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+    .ne-wires path { fill: none; }
+    .w-flow path { stroke: #3a3a40; stroke-width: 3; stroke-dasharray: 2 8; stroke-linecap: round; }
+    .w-links .wire { stroke: #c9c9cf; stroke-width: 2.4; }
+    .w-links .wire.to-pipe { stroke: var(--accent); }
+    .w-links .hit { stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+    .w-links .hit:hover + .wire { stroke: #fff; stroke-width: 3.4; }
+    .w-temp { stroke: #fff; stroke-width: 2.4; stroke-dasharray: 6 5; }
+    .ne-layer { position: absolute; left: 0; top: 0; }
+    .ne-empty { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 13px; color: var(--muted); background: var(--raise); border: 1px solid var(--line-strong); border-radius: 999px; padding: 8px 14px; pointer-events: none; white-space: nowrap; }
+
+    .node {
+      position: absolute; width: 220px; border-radius: 10px;
+      background: #1c1c20; border: 1px solid #2e2e34;
+      box-shadow: 0 12px 30px -12px #000; cursor: default; font-size: 12px;
+    }
+    .node.sel { border-color: #e6e6e9; }
+    .node header {
+      position: relative; display: flex; align-items: center; gap: 7px;
+      height: 30px; padding: 0 10px; border-radius: 9px 9px 0 0;
+      font-weight: 600; font-size: 12.5px; cursor: grab;
+      background: #26262b; border-bottom: 1px solid #2e2e34;
+    }
+    .node.pipe header { background: #2b2b31; }
+    .node.cat-entree header { background: #1f3a33; }
+    .node.cat-outil header { background: #2c2a44; }
+    .node header i { font-size: 14px; color: var(--muted); }
+    .nx { margin-left: auto; display: grid; place-items: center; width: 20px; height: 20px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
+    .nx:hover { background: #ffffff18; color: var(--text); }
+    .flow { position: absolute; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: #55555c; border: 2px solid #1c1c20; }
+    .flow.fin { left: -6px; }
+    .flow.fout { right: -6px; }
+    .node .rows { padding: 6px 0 8px; display: grid; gap: 3px; }
+    .node .row { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 10px; min-height: 24px; }
+    .node .row.out { justify-content: flex-end; gap: 8px; color: var(--muted); }
+    .node .row.out output { font-family: "Geist Mono", monospace; font-size: 11px; color: var(--text); min-width: 46px; text-align: right; }
+    .node .row.note { color: var(--faint); font-size: 11px; justify-content: center; }
+    .sock { position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #8a8a92; border: 2px solid #1c1c20; cursor: crosshair; z-index: 1; }
+    .sock.in { left: -7px; }
+    .sock.out { right: -7px; background: #d8d8dc; }
+    .sock.in.on { background: var(--accent); }
+    .sock:hover { transform: scale(1.3); }
+    .sock-gap { display: none; }
+    .lock { position: absolute; left: -7px; font-size: 11px; color: #5c5c63; background: #1c1c20; border-radius: 50%; }
+
+    .field {
+      position: relative; flex: 1; height: 22px; border-radius: 5px; overflow: hidden;
+      background: #2a2a30; cursor: ew-resize; display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
+      user-select: none;
+    }
+    .field:hover { background: #313138; }
+    .f-fill { position: absolute; inset: 0; background: #4a4a54; transform-origin: left; pointer-events: none; }
+    .f-label, .f-val { position: relative; white-space: nowrap; }
+    .f-label { color: #c9c9cf; overflow: hidden; text-overflow: ellipsis; margin-right: 6px; }
+    .f-val { font-family: "Geist Mono", monospace; font-size: 11px; color: #fff; }
+    .field.driven { cursor: default; }
+    .field.driven .f-fill { background: color-mix(in srgb, var(--accent) 55%, #2a2a30); }
+    .f-input { position: absolute; inset: 0; width: 100%; border: 1px solid #fff; border-radius: 5px; background: #111; color: #fff; font: 500 12px "Geist Mono", monospace; padding: 0 8px; }
+    .node .sel, .node .col, .node .tog { flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #c9c9cf; }
+    .node select { flex: 1; max-width: 120px; height: 22px; border-radius: 5px; border: 1px solid #38383e; background: #2a2a30; color: #fff; font: 12px "Geist", sans-serif; padding: 0 4px; }
+    .node input[type=color] { width: 40px; height: 20px; border: 1px solid #38383e; border-radius: 5px; background: none; padding: 1px; }
+    .viewer { display: block; width: calc(100% - 20px); margin: 4px 10px; border-radius: 6px; background: #000; }
+
+    .ne-menu { position: absolute; z-index: 5; width: 190px; padding: 6px; border-radius: 10px; background: #1c1c20; border: 1px solid #38383e; box-shadow: 0 20px 40px -10px #000; }
+    .ne-menu p { padding: 6px 8px 4px; font-size: 11px; color: var(--faint); }
+    .ne-menu button { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font-size: 13px; cursor: pointer; text-align: left; }
+    .ne-menu button:hover { background: #2e2e34; }
     #stage {
       position: relative; display: grid; place-items: center; min-height: 0; overflow: hidden;
       background-image: radial-gradient(circle, #ffffff0c 1px, transparent 1.2px);
@@ -185,6 +266,7 @@
     <span class="spacer"></span>
     <div class="actions">
       <button class="btn" id="random" type="button"><i class="ph ph-shuffle"></i><span class="hide-sm">Aléatoire</span></button>
+      <button class="btn" id="toggle-nodes" type="button" aria-pressed="false"><i class="ph ph-tree-structure"></i><span class="hide-sm">Nœuds</span></button>
       <button class="btn icon" id="pause" type="button" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
       <button class="btn icon hide-sm" id="toggle-panel" type="button" aria-label="Afficher ou masquer les réglages"><i class="ph ph-sidebar-simple"></i></button>
       <button class="btn hide-sm" id="export-svg" type="button"><i class="ph ph-bezier-curve"></i>SVG</button>
@@ -200,6 +282,7 @@
         <div class="stage-meta mono"><span id="frame-size"></span><span id="perf"></span></div>
         <p id="draw-hint" hidden>Dessine une boucle d'un seul trait, relâche pour valider. <kbd>Échap</kbd> pour annuler.</p>
       </div>
+      <section id="nodes" class="nodes" hidden aria-label="Éditeur de nœuds"></section>
       <div class="bottom">
         <span class="label">Format</span>
         <div class="chips" id="formats" style="flex-wrap: nowrap"></div>
@@ -216,6 +299,7 @@
         <span><kbd>Espace</kbd> pause</span>
         <span><kbd>R</kbd> combinaison aléatoire</span>
         <span><kbd>H</kbd> masquer les réglages</span>
+        <span><kbd>N</kbd> éditeur de nœuds</span>
       </div>
     </aside>
   </div>
