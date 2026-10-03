@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 400">
+  <title>Bloom</title>
+  <g transform="translate(200 200) scale(0.42)"><defs><mask id="lm"><rect x="-600" y="-600" width="1200" height="1200" fill="#fff"/><circle r="150" fill="#000"/></mask></defs><g fill="#0e0e10" transform="rotate(-12)"><g mask="url(#lm)"><path d="M -418,0 Q -100.3,-47.5 0,-132 Q 100.3,-47.5 418,0 Q 100.3,47.5 0,132 Q -100.3,47.5 -418,0 Z" transform="rotate(0)"/><path d="M -300,0 Q -72.0,-41.8 0,-116 Q 72.0,-41.8 300,0 Q 72.0,41.8 0,116 Q -72.0,41.8 -300,0 Z" transform="rotate(90)"/><path d="M -196,0 Q -47.0,-28.1 0,-78 Q 47.0,-28.1 196,0 Q 47.0,28.1 0,78 Q -47.0,28.1 -196,0 Z" transform="rotate(45)"/><path d="M -196,0 Q -47.0,-28.1 0,-78 Q 47.0,-28.1 196,0 Q 47.0,28.1 0,78 Q -47.0,28.1 -196,0 Z" transform="rotate(135)"/></g><circle r="120"/></g></g>
+  <text x="440" y="246" font-family="Geist, 'SF Pro Display', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="148" font-weight="600" letter-spacing="-5" fill="#0e0e10">Bloom</text>
+</svg>

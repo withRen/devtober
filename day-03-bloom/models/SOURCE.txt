@@ -1,0 +1,4 @@
+ffdnet-color.bin : poids de FFDNet (couleur, 12 couches, 96 canaux)
+Kai Zhang, Wangmeng Zuo, Lei Zhang, « FFDNet: Toward a fast and flexible solution for CNN-based image denoising », IEEE TIP 2018.
+Source : https://github.com/cszn/KAIR (licence MIT, (c) 2019 Kai Zhang), fichier ffdnet_color.pth.
+Converti en demi-flottants, regroupés en blocs de matrices 4 x 4 : [sortie/4][entrée/4][3 x 3][colonne][ligne], puis le biais.

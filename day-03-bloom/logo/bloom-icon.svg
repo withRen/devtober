@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Bloom</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ebebed"/></linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#000" flood-opacity=".22"/></filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)" filter="url(#sh)"/>
+  <g transform="translate(512 512) scale(0.9)"><defs><mask id="m"><rect x="-600" y="-600" width="1200" height="1200" fill="#fff"/><circle r="150" fill="#000"/></mask></defs><g fill="#0e0e10" transform="rotate(-12)"><g mask="url(#m)"><path d="M -418,0 Q -100.3,-47.5 0,-132 Q 100.3,-47.5 418,0 Q 100.3,47.5 0,132 Q -100.3,47.5 -418,0 Z" transform="rotate(0)"/><path d="M -300,0 Q -72.0,-41.8 0,-116 Q 72.0,-41.8 300,0 Q 72.0,41.8 0,116 Q -72.0,41.8 -300,0 Z" transform="rotate(90)"/><path d="M -196,0 Q -47.0,-28.1 0,-78 Q 47.0,-28.1 196,0 Q 47.0,28.1 0,78 Q -47.0,28.1 -196,0 Z" transform="rotate(45)"/><path d="M -196,0 Q -47.0,-28.1 0,-78 Q 47.0,-28.1 196,0 Q 47.0,28.1 0,78 Q -47.0,28.1 -196,0 Z" transform="rotate(135)"/></g><circle r="120"/></g></g>
+</svg>

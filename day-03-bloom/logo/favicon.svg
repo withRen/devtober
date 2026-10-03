@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#141416"/>
+  <g transform="translate(32 32) scale(0.064)">
+    <defs><mask id="f"><rect x="-600" y="-600" width="1200" height="1200" fill="#fff"/><circle r="162" fill="#000"/></mask></defs>
+    <g fill="#f4f4f5" transform="rotate(-12)"><g mask="url(#f)"><path d="M -418,0 Q -100.3,-54.0 0,-150 Q 100.3,-54.0 418,0 Q 100.3,54.0 0,150 Q -100.3,54.0 -418,0 Z" transform="rotate(0)"/><path d="M -300,0 Q -72.0,-46.8 0,-130 Q 72.0,-46.8 300,0 Q 72.0,46.8 0,130 Q -72.0,46.8 -300,0 Z" transform="rotate(90)"/></g><circle r="132"/></g>
+  </g>
+</svg>
