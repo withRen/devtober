@@ -1174,7 +1174,7 @@ async function openFile(file) {
   } catch (err) {
     console.error(err);
     const why = {
-      isolation: 'le décodage RAW demande le serveur local (python3 day-03-bloom/serve.py).',
+      isolation: 'le décodage RAW demande une page isolée. Recharge la page ; en local, lance python3 day-03-bloom/serve.py.',
       raw: 'ce RAW n\'a pas pu être décodé.',
       hdr: 'ce fichier HDR n\'est pas lisible.',
       size: 'l\'image est trop grande pour la carte graphique.',

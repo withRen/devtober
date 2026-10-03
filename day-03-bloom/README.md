@@ -58,7 +58,9 @@ Le décodage RAW a besoin de `SharedArrayBuffer`, donc d'une page isolée (en-t�
 python3 day-03-bloom/serve.py
 ```
 
-puis ouvrir `http://localhost:8766/day-03-bloom/`. Sans ces en-têtes, tout fonctionne sauf les RAW.
+puis ouvrir `http://localhost:8766/day-03-bloom/`.
+
+En ligne, GitHub Pages ne permet pas d'ajouter ces en-têtes : un petit service worker (`coi-sw.js`, installé par `coi.js`) les ajoute lui-même à chaque réponse. À la première visite, la page se recharge une fois, puis les RAW s'ouvrent normalement.
 
 ## Ce qui viendra
 
